@@ -59,31 +59,81 @@ function handleGenerateQuestion(type) {
 
 function handleEvaluateAnswer(type, userAnswerFile) {
     if (type !== 'nash') {
-        console.error("Evaluarea este implementată doar pentru tipul 'nash' deocamdată.");
+        console.error("Evaluarea este implementată doar pentru tipul 'nash'.");
         return;
     }
 
     const INSTANCE_FILE = `instanta_${type}.json`;
-    
-    const oldMatrix = nashModule.readInstance(INSTANCE_FILE);
-    if (!oldMatrix) {
-        console.error("Evaluare eșuată: Nu s-a putut citi instanța problemei.");
+
+    const matrix = nashModule.readInstance(INSTANCE_FILE);
+    if (!matrix) {
+        console.error("Nu s-a putut citi instanța problemei.");
         return;
     }
-    
-    const correctENP = nashModule.findPureNashEquilibria(oldMatrix);
 
-    const userAnswer = nashModule.readUserAnswerFile(userAnswerFile);
-    
-    const score = nashModule.evaluateNashAnswer(userAnswer, correctENP);
+    const correctENP = nashModule.findPureNashEquilibria(matrix);
 
-    let evaluationOutput = "\n--- REZULTAT EVALUARE NASH ---\n";
-    evaluationOutput += `Punctaj obținut: ${score}%\n`;
-    evaluationOutput += `Răspuns Corect (ENP): ${JSON.stringify(correctENP.map(([r, c]) => [r, c]))}\n`;
+    const userData = nashModule.readUserAnswerFile(userAnswerFile);
 
-    fs.writeFileSync(`evaluare_${type}.txt`, evaluationOutput);
-    console.log(evaluationOutput);
-    console.log(`Evaluarea a fost salvată în: evaluare_${type}.txt`);
+    // noul sistem de evaluare returnează doar scorul → trebuie să calculăm detalii separat
+    const studentExists = 
+        userData.studentSaysExists !== null 
+            ? userData.studentSaysExists 
+            : userData.pairs.length > 0;
+
+    const correctExists = correctENP.length > 0;
+
+    // calculăm detalii pentru explain
+    const correctSet = new Set(correctENP.map(([r,c]) => `${r}-${c}`));
+    const userSet = new Set(userData.pairs.map(([r,c]) => `${r}-${c}`));
+
+    let matches = 0;
+    userSet.forEach(p => { if (correctSet.has(p)) matches++; });
+
+    const falsePositives = userSet.size - matches;
+
+    // scor final
+    const score = nashModule.evaluateNashAnswer(userData, correctENP);
+
+    // construire raport detaliat
+    let explanation = "\n--- EVALUARE DETALIATĂ NASH ---\n\n";
+
+    explanation += `► Studentul a spus că există ENP: ${studentExists ? "DA" : "NU"}\n`;
+    explanation += `► În realitate există ENP: ${correctExists ? "DA" : "NU"}\n\n`;
+
+    explanation += `► ENP corecte (${correctENP.length}): ${correctENP.map(x => `(${x[0]},${x[1]})`).join(", ")}\n`;
+    explanation += `► Perechi date de student (${userData.pairs.length}): ${
+        userData.pairs.length ? userData.pairs.map(x => `(${x[0]},${x[1]})`).join(", ") : "niciuna"
+    }\n\n`;
+
+    explanation += `✔ Perechi corecte găsite: ${matches}\n`;
+    explanation += `✘ Perechi greșite: ${falsePositives}\n\n`;
+
+    // scor structură (existență ENP)
+    let structScore = 0;
+    if (!correctExists && !studentExists) structScore = 50;
+    else if (correctExists && studentExists) structScore = 50;
+
+    explanation += `► Punctaj structură (există / nu există ENP): ${structScore}/50\n`;
+
+    // punctaj perechi
+    let pairScore = correctExists ? (matches / correctENP.length) * 50 : 0;
+    explanation += `► Punctaj perechi corecte: ${pairScore.toFixed(2)}/50\n`;
+
+    // penalizare
+    let penalty = Math.min(falsePositives * 10, 30);
+    explanation += `► Penalizare perechi greșite: -${penalty}\n\n`;
+
+    explanation += `--------------------------------------\n`;
+    explanation += `► SCOR FINAL: ${score}%\n`;
+    explanation += `--------------------------------------\n`;
+
+    // salvăm rezultatul
+    const output = explanation;
+    fs.writeFileSync(`evaluare_${type}.txt`, output);
+
+    console.log(output);
+    console.log(`Evaluarea a fost salvată în evaluare_${type}.txt`);
 }
 
 

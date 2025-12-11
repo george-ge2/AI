@@ -1,5 +1,8 @@
 const fs = require('fs');
 
+// --------------------------
+//  GENERARE MATRICE PAYOFF
+// --------------------------
 function generatePayoffMatrix() {
     const matrix = [];
     const size = 3;
@@ -8,59 +11,44 @@ function generatePayoffMatrix() {
     for (let i = 0; i < size; i++) {
         matrix[i] = [];
         for (let j = 0; j < size; j++) {
-            // Castig pentru Jucatorul 1 (Rand)
             const payoff1 = Math.floor(Math.random() * (MAX_PAYOFF + 1));
-            // Câștig pentru Jucatorul 2 (Coloana)
             const payoff2 = Math.floor(Math.random() * (MAX_PAYOFF + 1));
-            matrix[i][j] = [payoff1, payoff2]; // [C1, C2]
+            matrix[i][j] = [payoff1, payoff2];
         }
     }
     return matrix;
 }
 
+// --------------------------
+//  CALCUL ENP (NASH)
+// --------------------------
 function findPureNashEquilibria(matrix) {
     const size = matrix.length;
     const nashEquilibria = [];
 
-    const bestResponses1 = new Array(size).fill(null).map(() => []);
+    const bestResponses1 = Array.from({ length: size }, () => []);
+    const bestResponses2 = Array.from({ length: size }, () => []);
 
-    for (let j = 0; j < size; j++) { 
-        let maxPayoff = -Infinity;       
+    // Best responses for player 1
+    for (let j = 0; j < size; j++) {
+        let maxPayoff = Math.max(...matrix.map(row => row[j][0]));
         for (let i = 0; i < size; i++) {
-            if (matrix[i][j][0] > maxPayoff) {
-                maxPayoff = matrix[i][j][0];
-            }
-        }
-        
-        for (let i = 0; i < size; i++) {
-            if (matrix[i][j][0] === maxPayoff) {
-                bestResponses1[j].push(i);
-            }
+            if (matrix[i][j][0] === maxPayoff) bestResponses1[j].push(i);
         }
     }
 
-    const bestResponses2 = new Array(size).fill(null).map(() => []);
-
-    for (let i = 0; i < size; i++) { 
-        let maxPayoff = -Infinity;
+    // Best responses for player 2
+    for (let i = 0; i < size; i++) {
+        let maxPayoff = Math.max(...matrix[i].map(cell => cell[1]));
         for (let j = 0; j < size; j++) {
-            if (matrix[i][j][1] > maxPayoff) {
-                maxPayoff = matrix[i][j][1];
-            }
-        }
-        for (let j = 0; j < size; j++) {
-            if (matrix[i][j][1] === maxPayoff) {
-                bestResponses2[i].push(j);
-            }
+            if (matrix[i][j][1] === maxPayoff) bestResponses2[i].push(j);
         }
     }
 
+    // Intersection (NASH)
     for (let i = 0; i < size; i++) {
         for (let j = 0; j < size; j++) {
-            const isBR1 = bestResponses1[j].includes(i); // Este i (rand) cel mai bun raspuns la j (coloana)?
-            const isBR2 = bestResponses2[i].includes(j); // Este j (coloana) cel mai bun raspuns la i (rand)?
-
-            if (isBR1 && isBR2) {
+            if (bestResponses1[j].includes(i) && bestResponses2[i].includes(j)) {
                 nashEquilibria.push([i + 1, j + 1, matrix[i][j]]);
             }
         }
@@ -69,86 +57,112 @@ function findPureNashEquilibria(matrix) {
     return nashEquilibria;
 }
 
-function evaluateNashAnswer(userEquilibria, correctEquilibria) {
-    if (correctEquilibria.length === 0) {
-        return userEquilibria.length === 0 ? 100 : 0;
-    }
+// --------------------------
+//  CITIRE RĂSPUNS STUDENT
+//  (DETECTARE "DA/NU EXISTĂ")
+// --------------------------
+function readUserAnswerFile(filename) {
+    try {
+        const raw = fs.readFileSync(filename, 'utf8').trim();
+        const lines = raw
+            .split('\n')
+            .map(l => l.trim())
+            .filter(l => l !== "");
 
-    const correctSet = new Set(correctEquilibria.map(([r, c]) => `${r}-${c}`));
-    const userSet = new Set(userEquilibria.map(([r, c]) => `${r}-${c}`));
+        let studentSaysExists = null;
+        let pairs = [];
 
-    let correctMatches = 0;
-    
-    userSet.forEach(userENP => {
-        if (correctSet.has(userENP)) {
-            correctMatches++;
+        for (const line of lines) {
+            const l = line.toLowerCase();
+
+            // Interpretări textuale
+            if (l.includes("nu") && l.includes("exista")) studentSaysExists = false;
+            else if (l === "nu") studentSaysExists = false;
+            else if (l.includes("nu exista")) studentSaysExists = false;
+
+            else if (l.includes("da") && !l.includes(",")) studentSaysExists = true;
+            else if (l.includes("exista") && !l.includes("nu")) studentSaysExists = true;
         }
-    });
 
-    const totalCorrect = correctEquilibria.length;
-    const totalUserIdentified = userEquilibria.length;
-    
-    let finalScore = (correctMatches / totalCorrect) * 100;
-    
-    const falsePositives = totalUserIdentified - correctMatches;
-    if (falsePositives > 0) {
-        const penaltyPerMistake = (100 / totalCorrect) * 0.5; 
-        const totalPenalty = falsePositives * penaltyPerMistake;
-        
-        finalScore -= totalPenalty;
+        // Extract pairs
+        // Extragem perechi de forma "număr, număr" chiar și dacă sunt în text
+        const pairRegex = /(\d+)\s*,\s*(\d+)/g;
+
+        for (const line of lines) {
+            let match;
+            while ((match = pairRegex.exec(line)) !== null) {
+                const r = parseInt(match[1]);
+                const c = parseInt(match[2]);
+                pairs.push([r, c]);
+            }
+        }
+
+        return { studentSaysExists, pairs };
+
+    } catch (err) {
+        console.error("Eroare citire fișier răspuns:", err);
+        return { studentSaysExists: null, pairs: [] };
     }
-    
+}
+
+// --------------------------
+//  EVALUARE CU PUNCTAJ PARȚIAL
+// --------------------------
+function evaluateNashAnswer(userData, correctEquilibria) {
+
+    const { studentSaysExists, pairs } = userData;
+
+    const correctExists = correctEquilibria.length > 0;
+
+    let structureScore = 0;
+
+    // Dacă studentul nu spune explicit nici DA nici NU => deducem după perechi
+    let studentExists =
+        studentSaysExists !== null ? studentSaysExists : pairs.length > 0;
+
+    // --- SCOR 50% PENTRU DIRECȚIA CORECTĂ ---
+    if (!correctExists && !studentExists) structureScore = 50;
+    else if (correctExists && studentExists) structureScore = 50;
+    else structureScore = 0;
+
+    // Dacă nu există ENP -> scor final = structureScore
+    if (!correctExists) return structureScore;
+
+    // --- SCOR 50% PENTRU PERECHI ---
+    const correctSet = new Set(correctEquilibria.map(([r, c]) => `${r}-${c}`));
+    const userSet = new Set(pairs.map(([r, c]) => `${r}-${c}`));
+
+    let matches = 0;
+    for (const p of userSet) {
+        if (correctSet.has(p)) matches++;
+    }
+
+    const pairScore = (matches / correctEquilibria.length) * 50;
+
+    // Penalizare pentru perechi greșite (-10 fiecare)
+    const falsePositives = userSet.size - matches;
+    let penalty = falsePositives * 10;
+    penalty = Math.min(penalty, 30);
+
+    let finalScore = structureScore + pairScore - penalty;
     return Math.max(0, Math.min(100, Math.round(finalScore)));
 }
 
-function readUserAnswerFile(filename) {
-    const fs = require('fs'); 
-
-    try {
-        const data = fs.readFileSync(filename, 'utf8');
-        const lines = data.split('\n').filter(line => line.trim() !== '');
-        
-        const userEquilibria = lines.map(line => {
-            const parts = line.split(',').map(p => parseInt(p.trim()));
-            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                return [parts[0], parts[1]]; // [r, c]
-            }
-            return null; 
-        }).filter(item => item !== null);
-        
-        return userEquilibria;
-        
-    } catch (err) {
-        if (err.code === 'ENOENT') {
-            console.error(`[Eroare] Fișierul de răspuns '${filename}' nu a fost găsit.`);
-        } else {
-            console.error("Eroare la citirea fișierului de răspuns:", err);
-        }
-        
-        return []; 
-    }
-}
-
+// --------------------------
 function saveInstance(instance, filename) {
     try {
-        const data = JSON.stringify(instance, null, 2); // null, 2 pentru formatare lizibilă
-        fs.writeFileSync(filename, data, 'utf8');
-        console.log(`[Persistență] Instanța problemei salvată în: ${filename}`);
+        fs.writeFileSync(filename, JSON.stringify(instance, null, 2), 'utf8');
+        console.log(`[Persistență] Instanța salvată în ${filename}`);
     } catch (error) {
-        console.error(`Eroare la salvarea instanței în ${filename}:`, error);
+        console.error("Eroare salvare instanță:", error);
     }
 }
 
 function readInstance(filename) {
     try {
-        const data = fs.readFileSync(filename, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.error(`[Eroare Citire] Fișierul instanței '${filename}' nu a fost găsit.`);
-        } else {
-            console.error(`Eroare la citirea sau parsarea instanței din ${filename}:`, error);
-        }
+        return JSON.parse(fs.readFileSync(filename, 'utf8'));
+    } catch (e) {
+        console.error("Eroare citire instanță:", e);
         return null;
     }
 }
@@ -156,8 +170,8 @@ function readInstance(filename) {
 module.exports = {
     generatePayoffMatrix,
     findPureNashEquilibria,
-    evaluateNashAnswer,
     readUserAnswerFile,
+    evaluateNashAnswer,
     saveInstance,
     readInstance
 };
