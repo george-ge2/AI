@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>SmarTest – AI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+    <h1><span>SmarTest</span> – Inteligență Artificială</h1>
+
+    <div class="card">
+        <button id="generateBtn">⚡ Generează întrebare Nash</button>
+        <pre id="question" class="muted">Nicio întrebare generată încă.</pre>
+    </div>
+
+    <div class="card">
+        <h3>Răspuns student</h3>
+        <div class="file-row compact">
+            <label for="answerFile" class="file-btn small">📂 Fișier</label>
+            <span id="fileName" class="muted small">niciun fișier</span>
+        </div>
+
+        <input type="file" id="answerFile" hidden>
+        <br><br>
+        <button id="evaluateBtn">📊 Evaluează</button>
+    </div>
+
+    <div class="card" id="result"></div>
+
+    <div class="footer">
+        AI Exam Preparation • Local Evaluation • No Agent Runtime
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&display=swap');
+
+:root {
+    --bg: #0b0f1a;
+    --card: #12182b;
+    --accent: #00e5ff;
+    --accent-soft: rgba(0, 229, 255, 0.2);
+    --text: #e6e9f0;
+    --muted: #9aa4bf;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    background: radial-gradient(circle at top, #11162a, var(--bg));
+    color: var(--text);
+    padding: 40px;
+}
+
+/* ---------- Layout ---------- */
+
+.container {
+    max-width: 900px;
+    margin: auto;
+}
+
+h1 {
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 40px;
+}
+
+h1 span {
+    color: var(--accent);
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+    background: linear-gradient(180deg, #151b33, var(--card));
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 10px 40px rgba(0,0,0,0.5);
+}
+
+/* ---------- Buttons ---------- */
+
+button {
+    background: linear-gradient(135deg, var(--accent), #4facfe);
+    color: #001014;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 25px var(--accent-soft);
+}
+
+/* ---------- File input ---------- */
+
+input[type="file"] {
+    color: var(--muted);
+    margin-right: 10px;
+}
+
+/* ---------- Question ---------- */
+
+pre {
+    background: #0c1022;
+    border-radius: 8px;
+    padding: 15px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #cde7ff;
+    overflow-x: auto;
+    margin-top: 15px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ---------- Result ---------- */
+
+#result h3 {
+    margin-top: 0;
+    color: var(--accent);
+}
+
+.score {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 10px 0;
+    color: var(--accent);
+}
+
+.muted {
+    color: var(--muted);
+}
+
+/* ---------- Footer vibe ---------- */
+
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+/* ---------- Custom file input ---------- */
+
+.file-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.file-btn {
+    background: linear-gradient(135deg, #6a5cff, #00e5ff);
+    color: #030712;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.file-btn:hover {
+    box-shadow: 0 0 20px rgba(106, 92, 255, 0.6);
+    transform: translateY(-1px);
+}
+
+/* ---------- Compact file row ---------- */
+
+.file-row.compact {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-btn.small {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+}
+
+button.small {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+}
+
+.muted.small {
+    font-size: 0.8rem;
+    max-width: 200px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+

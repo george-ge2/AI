@@ -1,0 +1,4 @@
+node_modules/
+uploads/
+nash/*.json
+nash/*.txt
