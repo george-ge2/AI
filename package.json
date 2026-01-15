@@ -7,8 +7,10 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "compromise": "^14.14.5",
     "express": "^5.2.1",
     "multer": "^2.0.2",
+    "natural": "^8.1.0",
     "pdf-parse": "^1.1.1"
   }
 }

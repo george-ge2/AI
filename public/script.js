@@ -50,6 +50,13 @@ function renderQuestions() {
             printNode(q.tree.root);
         }
 
+        if (q.type === 'strategy') {
+            output += `Tip problemă: ${q.problemType}\n`;
+            if (q.instance) {
+                output += `Instanță: ${q.instance.description}\n`;
+            }
+        }
+
         if (showSolutions && q.solution) {
             output += `\n=== Soluție ===\n`;
             output += `${q.solution}\n`;
@@ -82,11 +89,13 @@ generateBtn.onclick = async () => {
         const nashCount = parseInt(document.getElementById('nashCount').value) || 0;
         const cspCount = parseInt(document.getElementById('cspCount').value) || 0;
         const minmaxCount = parseInt(document.getElementById('minmaxCount')?.value) || 0;
+        const strategyCount = parseInt(document.getElementById('strategyCount')?.value) || 0;
 
         const requests = [];
         if (nashCount > 0) requests.push({ type: 'nash', count: nashCount });
         if (cspCount > 0) requests.push({ type: 'csp', count: cspCount });
         if (minmaxCount > 0) requests.push({ type: 'minmax', count: minmaxCount });
+        if (strategyCount > 0) requests.push({ type: 'strategy', count: strategyCount });
 
         if (requests.length === 0) {
             questionEl.textContent = "Selectați cel puțin o întrebare de generat.";
@@ -217,6 +226,25 @@ evaluateBtn.onclick = async () => {
                             <strong>Valori corecte:</strong> ${count} / 2
                          </div>`;
             }
+            else if (r.type === 'strategy') {
+                const scoreColor = r.score >= 75 ? '#51cf66' : r.score >= 50 ? '#ffd43b' : '#ff6b6b';
+                html += `<div style="font-size: 1.8rem; font-weight: 600; color: ${scoreColor}; margin: 10px 0;">
+                            ${r.score}%
+                        </div>`;
+                if (r.detectedStrategy) {
+                    html += `<div class="muted" style="margin-top: 8px;">
+                                <strong>Strategie detectată:</strong> ${r.detectedStrategy}
+                            </div>`;
+                }
+                if (r.correctAnswer) {
+                    html += `<div class="muted" style="margin-top: 8px;">
+                                <strong>Strategie optimă:</strong> ${r.correctAnswer}
+                            </div>`;
+                }
+                if (r.feedback) {
+                    html += `<div class="muted" style="margin-top: 8px;">${r.feedback}</div>`;
+                }
+            }
             
             html += `</div>`;
         });
@@ -286,6 +314,17 @@ document.getElementById('downloadPdfBtn').onclick = async () => {
             const constraintsLines = doc.splitTextToSize(removeDiacritics(constraintsText), maxWidth);
             constraintsLines.forEach(line => { if (y > 770) { doc.addPage(); y = margin; } doc.text(line, margin, y); y += lineHeight; });
 
+            y += 8;
+        }
+
+        if (q.type === 'strategy' && q.problemType && q.instance) {
+            const strategyText = `Tip problema: ${q.problemType}\nInstanta: ${q.instance.description}`;
+            const strategyLines = doc.splitTextToSize(removeDiacritics(strategyText), maxWidth);
+            strategyLines.forEach(line => { 
+                if (y > 770) { doc.addPage(); y = margin; } 
+                doc.text(line, margin, y); 
+                y += lineHeight; 
+            });
             y += 8;
         }
 

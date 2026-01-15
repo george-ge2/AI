@@ -7,6 +7,7 @@ const path = require('path');
 const nashModule = require('./nash/gen');
 const cspModule = require('./csp/csp');
 const minmaxModule = require('./minmax/minimax');
+const strategyModule = require('./strategy/index.js');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -221,6 +222,35 @@ app.post('/api/generate', (req, res) => {
                 solution: `Valoare rădăcină: ${result.rootValue}, Frunze vizitate: ${result.leavesVisited}`
             });
         }
+        else if (type === 'strategy') {
+            const question = strategyModule.generateQuestion();
+            
+            const instanceFile = `strategy/instanta_${globalIndex}.json`;
+            fs.writeFileSync(instanceFile, JSON.stringify({
+                problemType: question.problemType,
+                instance: question.instance,
+                optimalStrategies: question.optimalStrategies,  // Fixed: was allOptimal
+                goodStrategies: question.goodStrategies,
+                workingStrategies: question.workingStrategies,
+                unsuitableStrategies: question.unsuitableStrategies
+            }, null, 2));
+
+            const solutionFile = `strategy/_SOLUTIE_strategy_${globalIndex}.txt`;
+            const solutionText = `Strategie optimă: ${question.optimalStrategies[0]}\n` +
+                                `Strategii optime: ${question.optimalStrategies.join(', ')}`;
+            fs.writeFileSync(solutionFile, solutionText, 'utf8');
+            
+            console.log(`[Gen] Strategy Q${globalIndex} salvat.`);
+
+            questions.push({
+                number: globalIndex,
+                type: 'strategy',
+                question: question.enunt,
+                problemType: question.problemType,
+                instance: question.instance,
+                solution: solutionText
+            });
+        }
     }
 
     res.json({ questions });
@@ -404,6 +434,31 @@ app.post('/api/evaluate-multi', upload.single('answer'), async (req, res) => {
                     number: qNum, type: 'minmax', score, 
                     correctRoot: correctResult.rootValue, correctLeaves: correctResult.leavesVisited,
                     extractedRoot: userRoot, extractedLeaves: userLeaves
+                });
+            }
+            else if (fs.existsSync(`strategy/instanta_${qNum}.json`)) {
+                const strategyPath = `strategy/instanta_${qNum}.json`;
+                const strategyData = JSON.parse(fs.readFileSync(strategyPath, 'utf-8'));
+                
+                // Create a question object compatible with evaluateAnswer
+                const questionForEval = {
+                    problemType: strategyData.problemType,
+                    instance: strategyData.instance,
+                    optimalStrategies: strategyData.optimalStrategies,
+                    goodStrategies: strategyData.goodStrategies || [],
+                    workingStrategies: strategyData.workingStrategies || [],
+                    unsuitableStrategies: strategyData.unsuitableStrategies || []
+                };
+                
+                const evaluation = strategyModule.evaluateAnswer(userAnswerText, questionForEval);
+                
+                results.push({
+                    number: qNum,
+                    type: 'strategy',
+                    score: evaluation.score,
+                    detectedStrategy: evaluation.detectedStrategy,
+                    correctAnswer: strategyData.optimalStrategies[0],
+                    feedback: evaluation.feedback ? evaluation.feedback.join('\n') : ''
                 });
             }
             

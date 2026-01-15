@@ -7,3 +7,5 @@ nash/*.json
 nash/*.txt
 minmax/*.json
 minmax/*.txt
+strategy/*.json
+strategy/*.txt
