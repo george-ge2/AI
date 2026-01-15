@@ -20,9 +20,10 @@ if (!fs.existsSync('nash')) fs.mkdirSync('nash');
 if (!fs.existsSync('csp')) fs.mkdirSync('csp');
 if (!fs.existsSync('minmax')) fs.mkdirSync('minmax');
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
+if (!fs.existsSync('strategy')) fs.mkdirSync('strategy');
 
 function wipeAllGeneratedFiles() {
-    ['nash', 'csp', 'minmax'].forEach(folder => {
+    ['nash', 'csp', 'minmax', 'strategy'].forEach(folder => {
         if (fs.existsSync(folder)) {
             const files = fs.readdirSync(folder);
             files.forEach(file => {
@@ -33,7 +34,7 @@ function wipeAllGeneratedFiles() {
             });
         }
     });
-    console.log('[WIPE] Am șters istoricul vechi (Nash, CSP, MinMax). Începem de la 1.');
+    console.log('[WIPE] Am șters istoricul vechi (Nash, CSP, MinMax, Strategy). Începem de la 1.');
 }
 
 // ----------------------
@@ -41,7 +42,7 @@ function wipeAllGeneratedFiles() {
 // ----------------------
 function getNextGlobalQuestionNumber() {
     let maxNum = 0;
-    const dirs = ['nash', 'csp', 'minmax'];
+    const dirs = ['nash', 'csp', 'minmax', 'strategy'];
 
     dirs.forEach(dir => {
         if (fs.existsSync(dir)) {
@@ -135,11 +136,6 @@ app.post('/api/generate', (req, res) => {
     if (!type || !count || count < 1) {
         return res.status(400).json({ error: "Specify 'type' and 'count' > 0" });
     }
-
-    // AM SCOS clearFolder() de aici!
-    // Vrem ca întrebările să se păstreze și să crească indexul (1, 2, 3...)
-
-    wipeAllGeneratedFiles();
 
     const questions = [];
 
@@ -258,10 +254,8 @@ app.post('/api/generate', (req, res) => {
 
 // Rută opțională pentru resetare manuală
 app.get('/api/reset', (req, res) => {
-    clearFolder('nash');
-    clearFolder('csp');
-    clearFolder('minmax');
-    res.send('Toate întrebările au fost șterse! Următoarea va fi Q1.');
+    wipeAllGeneratedFiles();
+    res.send('Reset efectuat.');
 });
 
 // ----------------------

@@ -102,6 +102,8 @@ generateBtn.onclick = async () => {
             return;
         }
 
+        await fetch('/api/reset');
+
         allQuestions = [];
 
         for (const reqData of requests) {
