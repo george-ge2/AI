@@ -524,7 +524,7 @@ app.post('/api/ask', (req, res) => {
             try {
                 // a) Extragem domeniile: Litera={cifre}
                 const domains = {};
-                const domRegex = /([a-z])\s*=\s*\{([0-9,\s]+)\}/g;
+                const domRegex = /([a-z])\s*[:=]\s*\{([0-9,\s]+)\}/g;
                 let dMatch;
                 while ((dMatch = domRegex.exec(text)) !== null) {
                     const v = dMatch[1].toUpperCase();
