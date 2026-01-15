@@ -11,19 +11,45 @@
     <h1><span>SmarTest</span> – Inteligență Artificială</h1>
 
     <div class="card">
-        <button id="generateBtn">⚡ Generează întrebare Nash</button>
+        <h3>Generează întrebări</h3>
+
+        <div class="question-count">
+            <label for="nashCount">Nash:</label>
+            <input type="number" id="nashCount" value="0" min="0">
+        </div>
+        <div class="question-count">
+            <label for="cspCount">CSP:</label>
+            <input type="number" id="cspCount" value="0" min="0">
+        </div>
+
+        <!-- Add more types later, e.g., nqueens -->
+        <!--
+        <div class="question-count">
+            <label for="nqueensCount">N-Queens:</label>
+            <input type="number" id="nqueensCount" value="0" min="0">
+        </div>
+        -->
+
+        <button id="generateBtn">⚡ Generează întrebări</button>
+        <button id="downloadPdfBtn">📄 Descarcă PDF</button>
         <pre id="question" class="muted">Nicio întrebare generată încă.</pre>
     </div>
 
     <div class="card">
-        <h3>Răspuns student</h3>
+        <h3>Evaluare răspuns</h3>
+
         <div class="file-row compact">
             <label for="answerFile" class="file-btn small">📂 Fișier</label>
             <span id="fileName" class="muted small">niciun fișier</span>
         </div>
-
         <input type="file" id="answerFile" hidden>
-        <br><br>
+
+        <div class="question-select">
+            <label for="questionNumbers">Numere întrebări (ex: 1,2,4):</label>
+            <input type="text" id="questionNumbers" placeholder="1,2,3">
+        </div>
+
+        <br>
         <button id="evaluateBtn">📊 Evaluează</button>
     </div>
 
@@ -35,6 +61,7 @@
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

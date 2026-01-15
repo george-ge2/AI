@@ -167,3 +167,69 @@ button.small {
     text-overflow: ellipsis;
 }
 
+/* ---------- Question count inputs ---------- */
+
+.question-count {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.question-count label {
+    font-weight: 600;
+    min-width: 60px;
+    color: var(--accent);
+}
+
+.question-count input[type="number"] {
+    width: 60px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: #0c1022;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    transition: 0.15s ease;
+}
+
+.question-count input[type="number"]:hover {
+    border-color: var(--accent-soft);
+}
+
+.question-count input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-soft);
+}
+
+.question-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.question-select label {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.question-select input[type="text"] {
+    flex: 1;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: #0c1022;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    transition: 0.15s ease;
+}
+
+.question-select input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-soft);
+}

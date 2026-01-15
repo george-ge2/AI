@@ -108,44 +108,33 @@ function readUserAnswerFile(filename) {
 // --------------------------
 //  EVALUARE CU PUNCTAJ PARȚIAL
 // --------------------------
-function evaluateNashAnswer(userData, correctEquilibria) {
+/**
+ * userData: { studentSaysExists: true/false, pairs: [[r,c],...] }
+ * correctENP: [[r,c],...]
+ */
+function evaluateNashAnswer(userData, correctENP) {
+    const correctExists = correctENP.length > 0;
+    const studentExists = userData.studentSaysExists;
 
-    const { studentSaysExists, pairs } = userData;
-
-    const correctExists = correctEquilibria.length > 0;
-
-    let structureScore = 0;
-
-    // Dacă studentul nu spune explicit nici DA nici NU => deducem după perechi
-    let studentExists =
-        studentSaysExists !== null ? studentSaysExists : pairs.length > 0;
-
-    // --- SCOR 50% PENTRU DIRECȚIA CORECTĂ ---
-    if (!correctExists && !studentExists) structureScore = 50;
-    else if (correctExists && studentExists) structureScore = 50;
-    else structureScore = 0;
-
-    // Dacă nu există ENP -> scor final = structureScore
-    if (!correctExists) return structureScore;
-
-    // --- SCOR 50% PENTRU PERECHI ---
-    const correctSet = new Set(correctEquilibria.map(([r, c]) => `${r}-${c}`));
-    const userSet = new Set(pairs.map(([r, c]) => `${r}-${c}`));
-
-    let matches = 0;
-    for (const p of userSet) {
-        if (correctSet.has(p)) matches++;
+    let structScore = 0;
+    if ((correctExists && studentExists) || (!correctExists && !studentExists)) {
+        structScore = 50;
     }
 
-    const pairScore = (matches / correctEquilibria.length) * 50;
+    let pairScore = 0;
+    if (correctExists && userData.pairs.length > 0) {
+        const correctSet = new Set(correctENP.map(([r,c]) => `${r}-${c}`));
+        const userSet = new Set(userData.pairs.map(([r,c]) => `${r}-${c}`));
+        let matches = 0;
+        userSet.forEach(p => { if (correctSet.has(p)) matches++; });
+        pairScore = (matches / correctENP.length) * 50;
+    }
 
-    // Penalizare pentru perechi greșite (-10 fiecare)
-    const falsePositives = userSet.size - matches;
-    let penalty = falsePositives * 10;
-    penalty = Math.min(penalty, 30);
+    const falsePositives = userData.pairs.length - correctENP.length;
+    if (falsePositives > 0) pairScore -= Math.min(falsePositives * 10, 50);
 
-    let finalScore = structureScore + pairScore - penalty;
-    return Math.max(0, Math.min(100, Math.round(finalScore)));
+    const totalScore = structScore + pairScore;
+    return Math.round(totalScore);
 }
 
 // --------------------------
@@ -167,11 +156,39 @@ function readInstance(filename) {
     }
 }
 
+function parseAnswerText(text) {
+    text = text.trim();
+
+    const result = {
+        studentSaysExists: null,
+        pairs: []
+    };
+
+    // Check if student explicitly says "Nu există" or similar
+    const noENPPattern = /(nu există|nu gaseste|nu există ENP|none)/i;
+    if (noENPPattern.test(text)) {
+        result.studentSaysExists = false;
+        return result;
+    }
+
+    result.studentSaysExists = true;
+
+    // Match pairs like (0,1) or 0,1
+    const pairPattern = /\(?\s*(\d+)\s*,\s*(\d+)\s*\)?/g;
+    let match;
+    while ((match = pairPattern.exec(text)) !== null) {
+        result.pairs.push([parseInt(match[1]), parseInt(match[2])]);
+    }
+
+    return result;
+}
+
 module.exports = {
     generatePayoffMatrix,
     findPureNashEquilibria,
     readUserAnswerFile,
     evaluateNashAnswer,
     saveInstance,
-    readInstance
+    readInstance,
+    parseAnswerText
 };

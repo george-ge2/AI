@@ -4,57 +4,38 @@ const nashModule = require('./gen.js');
 // node app_cli.js generate nash
 // node app_cli.js evaluate nash raspuns_student.txt -> creeaza raspuns_student.txt mai intai
 
-function handleGenerateQuestion(type) {
-    let instance;
-    let correctAnswer;
-    let questionText = `Tip Întrebare: ${type.toUpperCase()}\n\n`;
-    
-    const INSTANCE_FILE = `instanta_${type}.json`; 
+function handleGenerateQuestions(type, count = 1) {
+    for (let i = 0; i < count; i++) {
+        handleGenerateQuestion(type, i + 1);
+    }
+}
+
+function handleGenerateQuestion(type, index = 1) {
+    const INSTANCE_FILE = `instanta_${type}_${index}.json`;
+    const SOL_FILE = `_SOLUTIE_${type}_${index}.txt`;
 
     if (type === 'nash') {
-        
         const matrix = nashModule.generatePayoffMatrix();
-        instance = matrix;
-        correctAnswer = nashModule.findPureNashEquilibria(matrix);
+        const solution = nashModule.findPureNashEquilibria(matrix);
 
-        nashModule.saveInstance(matrix, INSTANCE_FILE); 
-        // -----------------------------------------------------------
+        nashModule.saveInstance(matrix, INSTANCE_FILE);
 
-        questionText += "Pentru jocul dat în forma normală (matricea atașată), există echilibru Nash pur? Care este acesta?\n\n";
-        
-        questionText += "Matricea de Câștig (R1, C2):\n";
-        
-        const formattedMatrix = matrix.map(row => 
-            row.map(([c1, c2]) => `(${c1}, ${c2})`).join('\t')
-        ).join('\n');
-        questionText += formattedMatrix + '\n';
-        
         let answerText = "--- RĂSPUNS CORECT NASH ---\n";
-        if (correctAnswer.length === 0) {
-            answerText += "Răspuns: Nu există Echilibru Nash Pur.\n";
-        } else {
-            answerText += `Răspuns: Da, există ${correctAnswer.length} ENP:\n`;
-            correctAnswer.forEach(([r, c, payoffs]) => {
-                 answerText += `\t- S${r}, S${c} (Câștiguri: ${payoffs[0]}, ${payoffs[1]})\n`;
-            });
+        if (!solution.length) answerText += "Nu există Echilibru Nash Pur.\n";
+        else {
+            answerText += `Da, există ${solution.length} ENP:\n`;
+            solution.forEach(([r, c]) => answerText += `- ${r}, ${c}\n`);
         }
-        fs.writeFileSync(`_SOLUTIE_${type}.txt`, answerText);
-        
-    } else if (type === 'nqueens') {
-        //pt nqueens - ignore
-        questionText += "Atenție: Modulul N-Queens nu este încă implementat în app_cli.js.";
-       
-        
-    } else {
-        console.error("Tip de întrebare necunoscut.");
-        return;
-    }
 
-    fs.writeFileSync(`intrebare_${type}.txt`, questionText);
-    
-    console.log(`\n✅ Întrebare ${type.toUpperCase()} generată în: intrebare_${type}.txt`);
-    console.log(`Instanța problemei (Matricea) salvată în: ${INSTANCE_FILE}`); // <--- NOU
-    console.log(`(Soluția a fost salvată în: _SOLUTIE_${type}.txt)\n`);
+        fs.writeFileSync(SOL_FILE, answerText);
+
+        const questionText = `Întrebare ${index} (${type.toUpperCase()}):\nPentru jocul dat, există echilibru Nash pur?\nMatrice:\n${matrix.map(row => row.map(([r, c]) => `(${r},${c})`).join('\t')).join('\n')}\n`;
+        fs.writeFileSync(`intrebare_${type}_${index}.txt`, questionText);
+
+        console.log(`✅ Întrebare #${index} generată: intrebare_${type}_${index}.txt`);
+    } else {
+        console.log(`❌ Tipul '${type}' nu este implementat încă.`);
+    }
 }
 
 function handleEvaluateAnswer(type, userAnswerFile) {
