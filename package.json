@@ -1,0 +1,22 @@
+{
+  "name": "P3",
+  "version": "1.0.0",
+  "description": "Search Strategy Question Generator",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node index.js -t",
+    "quiz": "node index.js -q",
+    "answers": "node index.js -a"
+  },
+  "keywords": ["search", "ai", "questions"],
+  "author": "",
+  "license": "ISC",
+  "private": true,
+  "dependencies": {
+    "compromise": "^14.14.0",
+    "natural": "^6.12.0",
+    "stopword": "^2.0.8"
+  }
+}
