@@ -37,92 +37,80 @@ function getNextQuestionNumber(type) {
 // GENERATE QUESTIONS
 // ----------------------
 app.post('/api/generate', (req, res) => {
-    try {
-        const { type, count } = req.body;
-        if (!type || !count || count < 1) {
-            return res.status(400).json({ error: "Specify 'type' and 'count' > 0" });
-        }
-
-        const questions = [];
-        let startNum = getNextQuestionNumber(type);
-
-        for (let i = 0; i < count; i++) {
-            const questionNum = startNum + i;
-            let questionData;
-
-            if (type === 'nash') {
-                const matrix = nashModule.generatePayoffMatrix();
-                const solution = nashModule.findPureNashEquilibria(matrix);
-                const instanceFile = `nash/instanta_${questionNum}.json`;
-                nashModule.saveInstance(matrix, instanceFile);
-
-                // write solution (hidden)
-                let answerText = "--- RĂSPUNS CORECT NASH ---\n";
-                if (solution.length === 0) {
-                    answerText += "Nu există Echilibru Nash Pur.\n";
-                } else {
-                    answerText += `Da, există ${solution.length} ENP:\n`;
-                    solution.forEach(([r, c]) => answerText += `- Rând ${r}, Coloană ${c}\n`);
-                }
-                fs.writeFileSync(`nash/_SOLUTIE_nash_${questionNum}.txt`, answerText);
-
-                questionData = {
-                    number: questionNum,
-                    type: 'nash',
-                    question: "Pentru jocul dat în forma normală, există echilibru Nash pur? Care este acesta?",
-                    matrix
-                };
-            } else if (type === 'csp') {
-                const q = cspModule.generateCSPForWeb();
-                if (!q) {
-                    return res.status(500).json({ error: "Failed to generate CSP question" });
-                }
-
-                // Create instance file for CSP
-                const instanceFile = `csp/instanta_${questionNum}.json`;
-                const instanceData = {
-                    variables: q.variables,
-                    domains: q.domains,
-                    constraints: q.constraints.map(c => ({
-                        var1: c.var1,
-                        var2: c.var2,
-                        operator: c.operator
-                    })),
-                    algorithm: q.algorithm
-                };
-                fs.writeFileSync(instanceFile, JSON.stringify(instanceData, null, 2));
-
-                // store hidden solution
-                fs.writeFileSync(
-                    `csp/_SOLUTIE_csp_${questionNum}.json`,
-                    JSON.stringify(q.correctAnswer, null, 2)
-                );
-
-                questionData = {
-                    number: questionNum,
-                    type: 'csp',
-                    question: q.enunt,
-                    variables: q.variables,
-                    domains: q.domains,
-                    constraints: q.constraints.map(c => `${c.var1}${c.operator}${c.var2}`)
-                };
-            } else {
-                questionData = { 
-                    number: questionNum,
-                    type: type,
-                    question: "Tipul de întrebare nu este încă implementat." 
-                };
-            }
-
-            questions.push(questionData);
-        }
-
-        res.json({ questions });
-    } catch (error) {
-        console.error('Generate error:', error);
-        res.status(500).json({ error: error.message });
+    const { type, count } = req.body;
+    if (!type || !count || count < 1) {
+        return res.status(400).json({ error: "Specify 'type' and 'count' > 0" });
     }
+
+    const questions = [];
+
+    for (let i = 0; i < count; i++) {
+        if (type === 'nash') {
+            const index = getNextQuestionNumber('nash');
+
+            // --- Generate matrix and solution ---
+            const matrix = nashModule.generatePayoffMatrix();
+            const solution = nashModule.findPureNashEquilibria(matrix);
+
+            // --- Save instance ---
+            const instanceFile = `nash/instanta_${index}.json`;
+            fs.writeFileSync(instanceFile, JSON.stringify(matrix, null, 2));
+
+            // --- Save solution as text ---
+            const solutionFile = `nash/_SOLUTIE_nash_${index}.txt`;
+            const solutionText = Array.isArray(solution) && solution.length > 0
+                ? `Da, există echilibru Nash pur.\nEchilibrul Nash pur: ` +
+                  solution.map(([r,c]) => `(${r},${c})`).join(', ')
+                : 'Nu există echilibru Nash pur.';
+            fs.writeFileSync(solutionFile, solutionText, 'utf8');
+            console.log(`[Persistență] Soluția Nash salvată în ${solutionFile}`);
+
+            // --- Push question object ---
+            questions.push({
+                number: index,
+                type: 'nash',
+                question: `Pentru jocul dat în forma normală, există echilibru Nash pur? Care este acesta?`,
+                matrix,
+                solution: solutionText
+            });
+        }
+        else if (type === 'csp') {
+            const cspNumber = getNextQuestionNumber('csp');
+            const instance = cspModule.generateCSPForWeb();
+
+            // --- Save instance ---
+            const instanceFile = `csp/instanta_${cspNumber}.json`;
+            fs.writeFileSync(instanceFile, JSON.stringify({
+                variables: instance.variables,
+                domains: instance.domains,
+                constraints: instance.constraints
+            }, null, 2));
+
+            // --- Save solution as text ---
+            const solutionFile = `csp/_SOLUTIE_csp_${cspNumber}.txt`;
+            const solutionText = instance.correctAnswer
+                ? JSON.stringify(instance.correctAnswer, null, 2)
+                : 'Nu există soluție definită';
+            fs.writeFileSync(solutionFile, solutionText, 'utf8');
+            console.log(`[Persistență] Soluția CSP salvată în ${solutionFile}`);
+
+            // --- Push question object ---
+            questions.push({
+                number: cspNumber,
+                type: 'csp',
+                question: instance.enunt,
+                variables: instance.variables,
+                domains: instance.domains,
+                constraints: instance.constraints,
+                solution: solutionText
+            });
+        }
+    }
+
+    res.json({ questions });
 });
+
+
 
 // ----------------------
 // EVALUATE MULTI

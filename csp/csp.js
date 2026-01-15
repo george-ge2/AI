@@ -2,7 +2,12 @@
 // CSP Generator + Solver + Evaluator (Web-safe)
 // CLI disabled
 // ===============================
+const path = require('path');
+const fs = require('fs');
 
+// Ensure solutions folder exists
+const cspSolutionsDir = path.join(__dirname, '../solutions/csp');
+if (!fs.existsSync(cspSolutionsDir)) fs.mkdirSync(cspSolutionsDir, { recursive: true });
 const crypto = require('crypto');
 
 /* ---------- Algorithms ---------- */

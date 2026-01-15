@@ -233,3 +233,60 @@ button.small {
     border-color: var(--accent);
     box-shadow: 0 0 10px var(--accent-soft);
 }
+
+/* Slider + label container */
+.switch-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* Hide the checkbox input */
+.switch-wrapper input {
+    display: none;
+}
+
+/* The slider track */
+.switch-wrapper .slider {
+    position: relative;
+    width: 60px;           /* wider to feel like a switch */
+    height: 28px;          /* slightly taller */
+    background-color: #44475a; /* inactive color */
+    border-radius: 28px;
+    transition: background-color 0.3s;
+    flex-shrink: 0;
+}
+
+/* The slider circle */
+.switch-wrapper .slider:before {
+    content: "";
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    left: 2px;
+    top: 2px;
+    background-color: var(--text);
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+/* Checked state */
+.switch-wrapper input:checked + .slider {
+    background-color: var(--accent);
+}
+.switch-wrapper input:checked + .slider:before {
+    transform: translateX(32px);
+}
+
+/* Label text aligned */
+.switch-wrapper .label-text {
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+}

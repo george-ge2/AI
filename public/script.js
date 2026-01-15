@@ -10,6 +10,47 @@ function removeDiacritics(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+function renderQuestions() {
+    const showSolutionsEl = document.getElementById('includeSolutions');
+    const showSolutions = showSolutionsEl ? showSolutionsEl.checked : false;
+
+    questionEl.textContent = allQuestions.map(q => {
+        let output = `Întrebarea ${q.number} (${q.type.toUpperCase()}):\n`;
+
+        const questionText = q.question
+            .replace(/\. /g, '.\n')
+            .replace(/, /g, ', ');
+        output += questionText + '\n\n';
+
+        if (q.type === 'nash' && q.matrix) {
+            const matrixText = q.matrix.map(row =>
+                row.map(([r,c]) => `(${r},${c})`).join('   ')
+            ).join('\n');
+            output += matrixText + '\n';
+        }
+
+        if (q.type === 'csp') {
+            output += `Variabile: ${q.variables.join(', ')}\nDomenii:\n`;
+            output += Object.entries(q.domains)
+                .map(([v,d]) => `  ${v}: {${d.join(', ')}}`)
+                .join('\n');
+            output += `\nConstrângeri: ${q.constraints.map(c => `${c.var1} ${c.operator} ${c.var2}`).join(', ')}`;
+        }
+
+        // Only add solution if checkbox exists AND is checked
+        if (showSolutions && q.solution) {
+            output += `\n\n=== Soluție ===\n${q.solution}\n`;
+        }
+
+        return output;
+    }).join('\n\n' + '─'.repeat(60) + '\n\n');
+}
+
+
+const showSolutionsEl = document.getElementById('includeSolutions');
+if (showSolutionsEl) {
+    showSolutionsEl.addEventListener('change', renderQuestions);
+}
 
 let allQuestions = [];
 
@@ -54,34 +95,7 @@ generateBtn.onclick = async () => {
             })));
         }
 
-        questionEl.textContent = allQuestions.map(q => {
-            let output = `Întrebarea ${q.number} (${q.type.toUpperCase()}):\n`;
-
-            // Insert line breaks for readability in long sentences
-            const questionText = q.question
-                .replace(/\. /g, '.\n')   // line break after period + space
-                .replace(/, /g, ', ');    // keep commas, could add breaks if needed
-
-            output += questionText + '\n\n';
-
-            if (q.type === 'nash' && q.matrix) {
-                const matrixText = q.matrix.map(row =>
-                    row.map(([r,c]) => `(${r},${c})`).join('   ')
-                ).join('\n');
-                output += matrixText + '\n';
-            }
-
-            if (q.type === 'csp') {
-                output += `Variabile: ${q.variables.join(', ')}\nDomenii:\n`;
-                output += Object.entries(q.domains)
-                    .map(([v,d]) => `  ${v}: {${d.join(', ')}}`)
-                    .join('\n');
-                output += `\nConstrângeri: ${q.constraints.join(', ')}`;
-            }
-
-            return output;
-        }).join('\n\n' + '─'.repeat(60) + '\n\n');
-
+        renderQuestions();
 
         resultEl.innerHTML = `<div style="color: var(--accent); font-weight: 600;">✓ ${allQuestions.length} întrebări generate cu succes!</div>`;
 
@@ -190,52 +204,35 @@ document.getElementById('downloadPdfBtn').onclick = async () => {
         return;
     }
 
+    const includeSolutions = document.getElementById('includeSolutions').checked;
     const { jsPDF } = window.jspdf;
+
     const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-    doc.setFont("times");  // safe built-in font
-
-
-    // PDF margins & line height
     const margin = 40;
-    const maxWidth = 520; // width to wrap text inside page margins
+    const maxWidth = 520;
     const lineHeight = 14;
-    let y = 40;
+    let y = margin;
 
     allQuestions.forEach((q, i) => {
-        // Question title
         if (y > 770) { doc.addPage(); y = margin; }
+        doc.setFont("times", "normal");
         doc.setFontSize(14);
-        doc.text(`Intrebarea ${i + 1} (${q.type.toUpperCase()}):`, margin, y);
+        doc.text(removeDiacritics(`Întrebarea ${i + 1} (${q.type.toUpperCase()}):`), margin, y);
         y += 20;
 
         doc.setFontSize(12);
-
-        // Clean the question text
-        let cleanQuestion = q.question
-            .replace(/\r?\n/g, ' ')   // remove raw line breaks
-            .replace(/\t/g, ' ')      // remove tabs
-            .replace(/[^\S ]+/g, '')  // remove invisible characters
-            .trim();
-
-        // Remove diacritics
-        cleanQuestion = removeDiacritics(cleanQuestion);
-
-        // Split and render
-        const questionLines = doc.splitTextToSize(cleanQuestion, maxWidth);
+        const questionLines = doc.splitTextToSize(removeDiacritics(q.question), maxWidth);
         questionLines.forEach(line => {
-            if (y > 770) {
-                doc.addPage();
-                y = margin;
-            }
-            doc.text(String(line), margin, y);
+            if (y > 770) { doc.addPage(); y = margin; }
+            doc.text(line, margin, y);
             y += lineHeight;
         });
         y += 8;
 
-        // Matrix (for Nash)
+        // Matrix for Nash
         if (q.matrix) {
             const matrixText = q.matrix.map(row => row.map(([r,c]) => `(${r},${c})`).join('   ')).join('\n');
-            const matrixLines = doc.splitTextToSize(`${matrixText}`, maxWidth);
+            const matrixLines = doc.splitTextToSize(removeDiacritics(matrixText), maxWidth);
             matrixLines.forEach(line => {
                 if (y > 770) { doc.addPage(); y = margin; }
                 doc.text(line, margin, y);
@@ -246,36 +243,40 @@ document.getElementById('downloadPdfBtn').onclick = async () => {
 
         // CSP variables/domains/constraints
         if (q.type === 'csp') {
-            const varsText = `Variabile: ${q.variables.join(', ')}`;
-            const varsLines = doc.splitTextToSize(varsText, maxWidth);
-            varsLines.forEach(line => {
-                if (y > 770) { doc.addPage(); y = margin; }
-                doc.text(line, margin, y);
-                y += lineHeight;
-            });
+            const varsText = removeDiacritics(`Variabile: ${q.variables.join(', ')}`);
+            doc.text(varsText, margin, y); y += lineHeight;
 
             const domainsText = 'Domenii:\n' + Object.entries(q.domains).map(([v,d]) => `  ${v}: {${d.join(', ')}}`).join('\n');
-            const domainLines = doc.splitTextToSize(domainsText, maxWidth);
-            domainLines.forEach(line => {
-                if (y > 770) { doc.addPage(); y = margin; }
-                doc.text(line, margin, y);
-                y += lineHeight;
-            });
+            const domainLines = doc.splitTextToSize(removeDiacritics(domainsText), maxWidth);
+            domainLines.forEach(line => { if (y>770){doc.addPage();y=margin;} doc.text(line, margin, y); y+=lineHeight; });
 
-            const constraintsText = 'Constrangeri: ' + q.constraints.join(', ');
+            const constraintsText = removeDiacritics(
+                'Constrângeri: ' + q.constraints.map(c => `${c.var1} ${c.operator} ${c.var2}`).join(', ')
+            );
             const constraintLines = doc.splitTextToSize(constraintsText, maxWidth);
-            constraintLines.forEach(line => {
+            constraintLines.forEach(line => { if (y>770){doc.addPage();y=margin;} doc.text(line, margin, y); y+=lineHeight; });
+            y += 8;
+        }
+
+        // Solutions
+        if (includeSolutions && q.solution) {
+            let solutionText = q.solution; // just use it directly
+
+            const solutionLines = doc.splitTextToSize(removeDiacritics(solutionText), maxWidth);
+            solutionLines.forEach(line => {
                 if (y > 770) { doc.addPage(); y = margin; }
+                doc.setTextColor(0,180,0);
                 doc.text(line, margin, y);
                 y += lineHeight;
             });
-
-            y += 8;
+            doc.setTextColor(0,0,0);
+            y += 12;
         }
 
         y += 20;
     });
 
     doc.save("SmarTest_Intrebari.pdf");
-
 };
+
+

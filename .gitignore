@@ -1,6 +1,7 @@
 node_modules/
 uploads/
-nash/*.json
-nash/*.txt
+solutions/
 csp/*.json
 csp/*.txt
+nash/*.json
+nash/*.txt
