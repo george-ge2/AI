@@ -5,6 +5,7 @@ const multer = require('multer');
 // Fixed paths - modules are in root directory
 const nashModule = require('./nash/gen');
 const cspModule = require('./csp/csp');
+const minmaxModule = require('./minmax/minimax');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -19,17 +20,14 @@ if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
 // Helper to get next available question number for a type
 function getNextQuestionNumber(type) {
-    const dir = type === 'nash' ? 'nash' : 'csp';
+    const dir = type === 'nash' ? 'nash' : type === 'csp' ? 'csp' : 'minmax';
     if (!fs.existsSync(dir)) return 1;
-    
     const files = fs.readdirSync(dir).filter(f => f.startsWith('instanta_') && f.endsWith('.json'));
     if (files.length === 0) return 1;
-    
     const numbers = files.map(f => {
         const match = f.match(/instanta_(\d+)\.json/);
         return match ? parseInt(match[1]) : 0;
     });
-    
     return Math.max(...numbers) + 1;
 }
 
@@ -105,6 +103,42 @@ app.post('/api/generate', (req, res) => {
                 solution: solutionText
             });
         }
+        else if (type === 'minmax') {
+            const index = getNextQuestionNumber('minmax');
+
+            // --- Generate tree with random depth & branching ---
+            const depth = Math.floor(Math.random() * 3) + 2;      // 2..4
+            const branching = Math.floor(Math.random() * 3) + 2;  // 2..4
+            const tree = minmaxModule.generateGameTree(depth, branching, 1, 10);
+
+            // --- Run MinMax with Alpha-Beta pruning ---
+            const result = minmaxModule.minimaxAlphaBeta(tree.root);
+
+            // --- Save instance ---
+            const instanceDir = 'minmax';
+            if (!fs.existsSync(instanceDir)) fs.mkdirSync(instanceDir);
+            const instanceFile = `${instanceDir}/instanta_${index}.json`;
+            fs.writeFileSync(instanceFile, JSON.stringify(tree, null, 2));
+
+            // --- Save solution as JSON (for evaluation) ---
+            const solutionFile = `${instanceDir}/_SOLUTIE_minmax_${index}.json`;
+            fs.writeFileSync(solutionFile, JSON.stringify({
+                rootValue: result.rootValue,
+                leavesVisited: result.leavesVisited
+            }, null, 2), 'utf8');
+
+            // --- Build question string with ASCII tree ---
+            const questionStr = `Pentru arborele de joc dat, aplicați MinMax cu Alpha-Beta pruning.\n\n` +
+                                `${minmaxModule.renderTree(tree.root)}`;
+
+            // --- Push question object ---
+            questions.push({
+                number: index,
+                type: 'minmax',
+                question: questionStr,
+                solution: `Valoare rădăcină: ${result.rootValue}, Frunze vizitate: ${result.leavesVisited}`
+            });
+        }
     }
 
     res.json({ questions });
@@ -159,7 +193,9 @@ app.post('/api/evaluate-multi', upload.single('answer'), (req, res) => {
             const nashInstance = `nash/instanta_${qNum}.json`;
             const nashSolution = `nash/_SOLUTIE_nash_${qNum}.txt`;
             const cspInstance = `csp/instanta_${qNum}.json`;
-            const cspSolution = `csp/_SOLUTIE_csp_${qNum}.json`;
+            const cspSolution = `csp/_SOLUTIE_csp_${qNum}.txt`;
+            const minmaxInstance = `minmax/instanta_${qNum}.json`;
+            const minmaxSolution = `minmax/_SOLUTIE_minmax_${qNum}.json`;
 
             // -------- Check NASH first --------
             if (fs.existsSync(nashInstance)) {
@@ -197,6 +233,32 @@ app.post('/api/evaluate-multi', upload.single('answer'), (req, res) => {
                     correct: evaluation.correct,
                     total: evaluation.total,
                     correctAnswer
+                });
+                return;
+            }
+
+            if (fs.existsSync(minmaxInstance) && fs.existsSync(minmaxSolution)) {
+                const correctResult = JSON.parse(fs.readFileSync(minmaxSolution, 'utf-8'));
+
+                // Parse user's answer like: "rootValue, leavesVisited"
+                const [userRoot, userLeaves] = (userAnswerText || '')
+                    .split(',').map(x => parseInt(x.trim()));
+
+                const rootCorrect = userRoot === correctResult.rootValue;
+                const leavesCorrect = userLeaves === correctResult.leavesVisited;
+
+                let score = 0;
+                if (rootCorrect && leavesCorrect) score = 100;
+                else if (rootCorrect || leavesCorrect) score = 50;
+
+                results.push({
+                    number: qNum,
+                    type: 'minmax',
+                    score,
+                    userRoot,
+                    userLeaves,
+                    correctRoot: correctResult.rootValue,
+                    correctLeaves: correctResult.leavesVisited
                 });
                 return;
             }

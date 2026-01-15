@@ -6,8 +6,8 @@ const generateBtn = document.getElementById('generateBtn');
 const evaluateBtn = document.getElementById('evaluateBtn');
 
 function removeDiacritics(str) {
-    // Normalize to NFD (separate diacritics) and remove them
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (str == null) return "";
+    return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function renderQuestions() {
@@ -17,10 +17,8 @@ function renderQuestions() {
     questionEl.textContent = allQuestions.map(q => {
         let output = `Întrebarea ${q.number} (${q.type.toUpperCase()}):\n`;
 
-        const questionText = q.question
-            .replace(/\. /g, '.\n')
-            .replace(/, /g, ', ');
-        output += questionText + '\n\n';
+        // Main question text
+        output += q.question + '\n\n';
 
         if (q.type === 'nash' && q.matrix) {
             const matrixText = q.matrix.map(row =>
@@ -37,14 +35,30 @@ function renderQuestions() {
             output += `\nConstrângeri: ${q.constraints.map(c => `${c.var1} ${c.operator} ${c.var2}`).join(', ')}`;
         }
 
-        // Only add solution if checkbox exists AND is checked
+        if (q.type === 'minmax' && q.tree) {
+            // Render leaf values per branch
+            output += `Frunze arbore: [${q.tree.leafValues.join(', ')}]\n`;
+
+            // Optional: simple ASCII tree visualization
+            function printNode(node, prefix = '', isLast = true) {
+                const typeLabel = node.isMax ? '[MAX]' : '[MIN]';
+                const valueLabel = node.value !== null ? ` = ${node.value}` : '';
+                output += `${prefix}${isLast ? '└── ' : '├── '}${node.id} ${typeLabel}${valueLabel}\n`;
+                const newPrefix = prefix + (isLast ? '    ' : '│   ');
+                node.children.forEach((c, i) => printNode(c, newPrefix, i === node.children.length -1));
+            }
+            printNode(q.tree.root);
+        }
+
         if (showSolutions && q.solution) {
-            output += `\n\n=== Soluție ===\n${q.solution}\n`;
+            output += `\n=== Soluție ===\n`;
+            output += `${q.solution}\n`;
         }
 
         return output;
     }).join('\n\n' + '─'.repeat(60) + '\n\n');
 }
+
 
 
 const showSolutionsEl = document.getElementById('includeSolutions');
@@ -67,10 +81,12 @@ generateBtn.onclick = async () => {
 
         const nashCount = parseInt(document.getElementById('nashCount').value) || 0;
         const cspCount = parseInt(document.getElementById('cspCount').value) || 0;
+        const minmaxCount = parseInt(document.getElementById('minmaxCount')?.value) || 0;
 
         const requests = [];
         if (nashCount > 0) requests.push({ type: 'nash', count: nashCount });
         if (cspCount > 0) requests.push({ type: 'csp', count: cspCount });
+        if (minmaxCount > 0) requests.push({ type: 'minmax', count: minmaxCount });
 
         if (requests.length === 0) {
             questionEl.textContent = "Selectați cel puțin o întrebare de generat.";
@@ -88,11 +104,14 @@ generateBtn.onclick = async () => {
             const data = await res.json();
             if (!data.questions) throw new Error("No questions returned from server");
 
-            allQuestions = allQuestions.concat(data.questions.map((q, idx) => ({
-                ...q,
-                type: reqData.type,
-                number: allQuestions.length + idx + 1
-            })));
+            allQuestions = allQuestions.concat(data.questions.map((q, idx) => {
+                const obj = { ...q, type: reqData.type, number: allQuestions.length + idx + 1 };
+                if (reqData.type === 'minmax' && q.solution) {
+                    obj.solution = q.solution; // { rootValue, leavesVisited, totalLeaves }
+                }
+                return obj;
+            }));
+
         }
 
         renderQuestions();
@@ -215,60 +234,55 @@ document.getElementById('downloadPdfBtn').onclick = async () => {
 
     allQuestions.forEach((q, i) => {
         if (y > 770) { doc.addPage(); y = margin; }
+
+        // Question header
         doc.setFont("times", "normal");
         doc.setFontSize(14);
         doc.text(removeDiacritics(`Întrebarea ${i + 1} (${q.type.toUpperCase()}):`), margin, y);
         y += 20;
 
         doc.setFontSize(12);
-        const questionLines = doc.splitTextToSize(removeDiacritics(q.question), maxWidth);
-        questionLines.forEach(line => {
+
+        // Main question text
+        const mainLines = doc.splitTextToSize(removeDiacritics(q.question), maxWidth);
+        mainLines.forEach(line => {
             if (y > 770) { doc.addPage(); y = margin; }
             doc.text(line, margin, y);
             y += lineHeight;
         });
         y += 8;
 
-        // Matrix for Nash
-        if (q.matrix) {
+        // Type-specific rendering
+        if (q.type === 'nash' && q.matrix) {
             const matrixText = q.matrix.map(row => row.map(([r,c]) => `(${r},${c})`).join('   ')).join('\n');
             const matrixLines = doc.splitTextToSize(removeDiacritics(matrixText), maxWidth);
-            matrixLines.forEach(line => {
-                if (y > 770) { doc.addPage(); y = margin; }
-                doc.text(line, margin, y);
-                y += lineHeight;
-            });
+            matrixLines.forEach(line => { if (y > 770) { doc.addPage(); y = margin; } doc.text(line, margin, y); y += lineHeight; });
             y += 8;
         }
 
-        // CSP variables/domains/constraints
-        if (q.type === 'csp') {
-            const varsText = removeDiacritics(`Variabile: ${q.variables.join(', ')}`);
-            doc.text(varsText, margin, y); y += lineHeight;
+        if (q.type === 'csp' && q.variables && q.domains && q.constraints) {
+            doc.text(removeDiacritics(`Variabile: ${q.variables.join(', ')}`), margin, y); y += lineHeight;
 
-            const domainsText = 'Domenii:\n' + Object.entries(q.domains).map(([v,d]) => `  ${v}: {${d.join(', ')}}`).join('\n');
-            const domainLines = doc.splitTextToSize(removeDiacritics(domainsText), maxWidth);
-            domainLines.forEach(line => { if (y>770){doc.addPage();y=margin;} doc.text(line, margin, y); y+=lineHeight; });
+            const domainText = Object.entries(q.domains)
+                .map(([v,d]) => `  ${v}: {${d.join(', ')}}`).join('\n');
+            const domainLines = doc.splitTextToSize(removeDiacritics(domainText), maxWidth);
+            domainLines.forEach(line => { if (y > 770) { doc.addPage(); y = margin; } doc.text(line, margin, y); y += lineHeight; });
 
-            const constraintsText = removeDiacritics(
-                'Constrângeri: ' + q.constraints.map(c => `${c.var1} ${c.operator} ${c.var2}`).join(', ')
-            );
-            const constraintLines = doc.splitTextToSize(constraintsText, maxWidth);
-            constraintLines.forEach(line => { if (y>770){doc.addPage();y=margin;} doc.text(line, margin, y); y+=lineHeight; });
+            const constraintsText = 'Constrângeri: ' + q.constraints.map(c => `${c.var1} ${c.operator} ${c.var2}`).join(', ');
+            const constraintsLines = doc.splitTextToSize(removeDiacritics(constraintsText), maxWidth);
+            constraintsLines.forEach(line => { if (y > 770) { doc.addPage(); y = margin; } doc.text(line, margin, y); y += lineHeight; });
+
             y += 8;
         }
 
         // Solutions
         if (includeSolutions && q.solution) {
-            let solutionText = q.solution; // just use it directly
+            const solutionText = q.type === 'minmax' && typeof q.solution === 'object'
+                ? `Valoare rădăcină: ${q.solution.rootValue}, Frunze vizitate: ${q.solution.leavesVisited}`
+                : q.solution;
 
             const solutionLines = doc.splitTextToSize(removeDiacritics(solutionText), maxWidth);
-            solutionLines.forEach(line => {
-                if (y > 770) { doc.addPage(); y = margin; }
-                doc.setTextColor(0,180,0);
-                doc.text(line, margin, y);
-                y += lineHeight;
-            });
+            solutionLines.forEach(line => { if (y > 770) { doc.addPage(); y = margin; } doc.setTextColor(0,180,0); doc.text(line, margin, y); y += lineHeight; });
             doc.setTextColor(0,0,0);
             y += 12;
         }

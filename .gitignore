@@ -5,3 +5,5 @@ csp/*.json
 csp/*.txt
 nash/*.json
 nash/*.txt
+minmax/*.json
+minmax/*.txt
