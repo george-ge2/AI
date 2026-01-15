@@ -116,9 +116,21 @@ function evaluateNashAnswer(userData, correctENP) {
     const correctExists = correctENP.length > 0;
     const studentExists = userData.studentSaysExists;
 
+    if (!correctExists) {
+        // Dacă studentul a spus corect că NU există -> 100 puncte
+        if (studentExists === false) {
+            return 100;
+        }
+        // Dacă studentul a spus că există -> 0 puncte
+        return 0;
+    }
+
     let structScore = 0;
     if ((correctExists && studentExists) || (!correctExists && !studentExists)) {
         structScore = 50;
+    } else {
+        // Dacă trebuia "Da" și a zis "Nu" -> 0 total
+        return 0;
     }
 
     let pairScore = 0;

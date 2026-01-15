@@ -237,24 +237,46 @@ function generateQuestion() {
 /* ---------- Evaluation ---------- */
 
 // STRICT: matches only "A = 2", never 2) or (2,2)
+
 function evaluateCSPTextAnswer(rawText, correctAnswer) {
     if (!correctAnswer) {
         return { score: 0, percentage: 0 };
     }
 
-    const regex = /\b([A-Z])\s*=\s*(-?\d+)\b/g;
-    const userAnswer = {};
-    let match;
+    let userAnswer = {};
+    
+    try {
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/); // Caută { ... }
+        if (jsonMatch) {
+            userAnswer = JSON.parse(jsonMatch[0]);
+        }
+    } catch (e) {
+        
+    }
 
-    while ((match = regex.exec(rawText)) !== null) {
-        userAnswer[match[1]] = parseInt(match[2], 10);
+    // Acest regex acceptă:
+    //  A = 1
+    //  A : 1
+    //  "A": 1
+    //  "A" = 1
+    if (Object.keys(userAnswer).length === 0) {
+        const regex = /["']?([A-Z])["']?\s*[:=]\s*(-?\d+)/g;
+        
+        let match;
+        while ((match = regex.exec(rawText)) !== null) {
+            // match[1] este litera (ex: A), match[2] este numărul (ex: 3)
+            userAnswer[match[1]] = parseInt(match[2], 10);
+        }
     }
 
     const vars = Object.keys(correctAnswer);
-    let correct = 0;
+    if (vars.length === 0) return { score: 0, percentage: 0, correct: 0, total: 0 };
 
+    let correct = 0;
     for (const v of vars) {
-        if (userAnswer[v] === correctAnswer[v]) correct++;
+        if (userAnswer[v] !== undefined && userAnswer[v] === correctAnswer[v]) {
+            correct++;
+        }
     }
 
     const pct = correct / vars.length;
@@ -269,7 +291,8 @@ function evaluateCSPTextAnswer(rawText, correctAnswer) {
         score,
         percentage: Math.round(pct * 100),
         correct,
-        total: vars.length
+        total: vars.length,
+        debugParsed: userAnswer // Poți vedea în consolă ce a înțeles
     };
 }
 

@@ -203,6 +203,20 @@ evaluateBtn.onclick = async () => {
                     }</div>`;
                 }
             }
+            else if (r.type === 'minmax') {
+                const scoreColor = r.score >= 100 ? '#51cf66' : r.score >= 50 ? '#ffd43b' : '#ff6b6b';
+                
+                // 1. Afișăm procentajul
+                html += `<div style="font-size: 2rem; font-weight: 800; color: ${scoreColor}; margin: 5px 0;">${r.score}%</div>`;
+                
+                // 2. Calculăm câte a nimerit (bazat pe scor)
+                // Dacă are 100% înseamnă 2/2. Dacă are 50% înseamnă 1/2.
+                const count = r.score === 100 ? 2 : (r.score > 0 ? 1 : 0);
+
+                html += `<div class="muted" style="margin-top: 8px;">
+                            <strong>Valori corecte:</strong> ${count} / 2
+                         </div>`;
+            }
             
             html += `</div>`;
         });
