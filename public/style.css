@@ -290,3 +290,86 @@ button.small {
     font-weight: 600;
     font-size: 0.95rem;
 }
+
+/* Stiluri pentru Solver / Chat */
+.solver-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.solver-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.id-input {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: #f8f9fa;
+    text-align: center;
+}
+
+.query-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    resize: vertical; /* Permite mărirea pe înălțime */
+    min-height: 80px;
+    transition: border-color 0.2s;
+}
+
+.query-input:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
+}
+
+.action-btn {
+    align-self: flex-end; /* Butonul în dreapta */
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.1s, background-color 0.2s;
+}
+
+.action-btn:hover {
+    background-color: #5a4bcf;
+    transform: translateY(-1px);
+}
+
+.action-btn:active {
+    transform: translateY(1px);
+}
+
+.response-box {
+    margin-top: 15px;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 5px solid #ccc;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.5;
+    display: none; /* Ascuns inițial */
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.response-box strong {
+    color: #2d3436;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

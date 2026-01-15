@@ -68,6 +68,26 @@
         <button id="evaluateBtn">📊 Evaluează</button>
     </div>
 
+    <h3>🤖 AI Solver & Helper</h3>
+        <p class="muted" style="font-size: 0.85rem; margin-bottom: 15px;">
+            Lasă <strong>ID-ul gol (0)</strong> pentru a rezolva o problemă nouă (scrie enunțul). 
+            Scrie un ID (ex: 1) pentru a întreba despre o problemă generată.
+        </p>
+
+        <div class="solver-container">
+            <div class="solver-header">
+                <label for="askQNum" style="font-weight: bold; color: var(--muted);">ID:</label>
+                <input type="number" id="askQNum" class="id-input" placeholder="0">
+            </div>
+
+            <textarea id="askText" class="query-input" placeholder="Scrie aici problema ta... 
+Ex: (3,1) (0,2)... sau A={1,2} A!=B... sau 'frunze [1,5,3]'"></textarea>
+
+            <button id="askBtn" class="action-btn">🚀 Rezolvă / Întreabă</button>
+        </div>
+
+        <div id="askResponse" class="response-box"></div>
+
     <div class="card" id="result"></div>
 
     <div class="footer">

@@ -471,6 +471,227 @@ app.post('/api/evaluate-multi', upload.single('answer'), async (req, res) => {
     }
 });
 
+// ---------------------------------------------------------
+// 7. RUTA "ORACLE" & "UNIVERSAL SOLVER"
+// ---------------------------------------------------------
+app.post('/api/ask', (req, res) => {
+    const { questionNumber, query } = req.body;
+    
+    if (!query) return res.status(400).json({ answer: "⚠️ Scrie enunțul problemei." });
+
+    const text = query.toLowerCase();
+    const qNum = parseInt(questionNumber) || 0; // 0 înseamnă mod SOLVER
+
+    // =========================================================
+    // MODUL A: SOLVER (Calculează pe loc din textul tău)
+    // =========================================================
+    if (qNum === 0) {
+        let response = "";
+
+        // --- 1. DETECTARE NASH ---
+        // Caută perechi: (3,1) (0,2)...
+        const nashPairs = [];
+        const nashRegex = /\((\d+)\s*,\s*(\d+)\)/g;
+        let nMatch;
+        while ((nMatch = nashRegex.exec(text)) !== null) {
+            nashPairs.push([parseInt(nMatch[1]), parseInt(nMatch[2])]);
+        }
+
+        if (nashPairs.length >= 4) {
+            // Presupunem matrice pătratică
+            const size = Math.sqrt(nashPairs.length);
+            if (Number.isInteger(size)) {
+                const matrix = [];
+                for (let i = 0; i < size; i++) {
+                    const row = [];
+                    for (let j = 0; j < size; j++) {
+                        row.push(nashPairs[i * size + j]);
+                    }
+                    matrix.push(row);
+                }
+                const solution = nashModule.findPureNashEquilibria(matrix);
+                const solStr = solution.length > 0 ? solution.map(p => `(${p[0]},${p[1]})`).join(', ') : "Nu există echilibru pur.";
+                
+                return res.json({ 
+                    answer: `🧮 **SOLVER NASH**\nAm detectat o matrice ${size}x${size}.\n\n**Soluția:** ${solStr}` 
+                });
+            }
+        }
+
+        // --- 2. DETECTARE CSP ---
+        // Format așteptat: A={1,2} B={1,2} A!=B
+        if (text.includes('={') || text.includes('!=')) {
+            try {
+                // a) Extragem domeniile: Litera={cifre}
+                const domains = {};
+                const domRegex = /([a-z])\s*=\s*\{([0-9,\s]+)\}/g;
+                let dMatch;
+                while ((dMatch = domRegex.exec(text)) !== null) {
+                    const v = dMatch[1].toUpperCase();
+                    const vals = dMatch[2].split(',').map(x => parseInt(x.trim()));
+                    domains[v] = vals;
+                }
+
+                // b) Extragem constrângerile: A!=B, A>B, A<B
+                const constraints = [];
+                const conRegex = /([a-z])\s*(!=|<|>)\s*([a-z])/g;
+                let cMatch;
+                while ((cMatch = conRegex.exec(text)) !== null) {
+                    constraints.push({
+                        var1: cMatch[1].toUpperCase(),
+                        operator: cMatch[2],
+                        var2: cMatch[3].toUpperCase()
+                    });
+                }
+
+                const vars = Object.keys(domains);
+
+                if (vars.length > 0) {
+                    // c) Mini-Solver Backtracking (Local)
+                    const solveCSP = (assignment) => {
+                        if (Object.keys(assignment).length === vars.length) return assignment;
+                        
+                        const unassigned = vars.find(v => !(v in assignment));
+                        for (const val of domains[unassigned]) {
+                            const nextAssignment = { ...assignment, [unassigned]: val };
+                            
+                            // Verificăm constrângerile
+                            const valid = constraints.every(c => {
+                                if ((c.var1 in nextAssignment) && (c.var2 in nextAssignment)) {
+                                    const a = nextAssignment[c.var1];
+                                    const b = nextAssignment[c.var2];
+                                    if (c.operator === '!=') return a !== b;
+                                    if (c.operator === '<') return a < b;
+                                    if (c.operator === '>') return a > b;
+                                }
+                                return true;
+                            });
+
+                            if (valid) {
+                                const res = solveCSP(nextAssignment);
+                                if (res) return res;
+                            }
+                        }
+                        return null;
+                    };
+
+                    const result = solveCSP({});
+                    const solText = result 
+                        ? Object.entries(result).map(([k,v]) => `${k}=${v}`).join(', ') 
+                        : "Nu există soluție.";
+
+                    return res.json({ 
+                        answer: `🧮 **SOLVER CSP**\nVariabile: ${vars.join(', ')}\nConstrângeri: ${constraints.length}\n\n**Soluția:** ${solText}` 
+                    });
+                }
+            } catch (e) { /* Continuăm dacă crapă parsarea */ }
+        }
+
+        // --- 3. DETECTARE MINMAX ---
+        // Format așteptat: [1, 5, 2] (frunze) și opțional b=2 (branching)
+        const leafRegex = /-?\d+/g;
+        const potentialLeaves = (text.match(leafRegex) || []).map(Number);
+        
+        // Cuvinte cheie obligatorii pt MinMax ca să nu se activeze aiurea
+        if ((text.includes('arbore') || text.includes('minmax') || text.includes('frunze')) && potentialLeaves.length >= 2) {
+            
+            // Încercăm să găsim branching factor (b=2 sau branching 2)
+            const bMatch = text.match(/b(?:ranching)?\s*[:=]?\s*(\d+)/);
+            const branching = bMatch ? parseInt(bMatch[1]) : 2; // Default arbore binar
+            
+            // Calculăm depth
+            // Total frunze = branching ^ depth => depth = log_b(Total)
+            // Pentru simplitate, reconstruim un arbore perfect echilibrat din frunze
+            
+            // Helper pentru a reconstrui arborele din lista plată de frunze
+            let leafIdx = 0;
+            function buildTree(currentHeight, isMax) {
+                if (currentHeight === 0) {
+                    if (leafIdx < potentialLeaves.length) {
+                        return new minmaxModule.TreeNode(`L${leafIdx}`, potentialLeaves[leafIdx++], [], isMax);
+                    }
+                    return new minmaxModule.TreeNode(`L${leafIdx}`, -Infinity, [], isMax); // Padding
+                }
+                const children = [];
+                for(let i=0; i<branching; i++) {
+                    children.push(buildTree(currentHeight - 1, !isMax));
+                }
+                return new minmaxModule.TreeNode("N", null, children, isMax);
+            }
+
+            // Estimăm înălțimea necesară
+            let h = 1;
+            while (Math.pow(branching, h) < potentialLeaves.length) h++;
+            
+            const root = buildTree(h, true);
+            const result = minmaxModule.minimaxAlphaBeta(root);
+
+            return res.json({ 
+                answer: `🧮 **SOLVER MINMAX**\nAm detectat ${potentialLeaves.length} frunze. Am construit un arbore cu ramificare ${branching}.\n\n**Valoare Rădăcină (Optim):** ${result.rootValue}\n**Frunze Vizitate:** ${result.leavesVisited}` 
+            });
+        }
+
+        // --- 4. DETECTARE STRATEGY (AI Search Problems) ---
+        // Folosim config-ul importat din strategyModule (index.js al tau)
+        
+        // Definim cuvinte cheie pentru a identifica DESPRE CE PROBLEMĂ vorbești
+        const problemKeywords = {
+            'n-queens': ['queen', 'regin', 'n-queens', 'table', 'sah'],
+            'generalized-hanoi': ['hanoi', 'turn', 'disk', 'disc', 'tija', 'tije', 'mutare'],
+            'graph-coloring': ['color', 'graf', 'harta', 'noduri', 'adiacent', 'chromatic'],
+            'knights-tour': ['knight', 'cal', 'tour', 'tur', 'tabla', 'mutari']
+        };
+
+        let detectedProblemKey = null;
+
+        // Căutăm în textul tău un cuvânt cheie care să indice problema
+        for (const [key, keywords] of Object.entries(problemKeywords)) {
+            if (keywords.some(w => text.includes(w))) {
+                detectedProblemKey = key;
+                break;
+            }
+        }
+
+        if (detectedProblemKey) {
+            // Accesăm baza de date din index.js (PROBLEM_STRATEGIES)
+            const db = strategyModule.PROBLEM_STRATEGIES;
+            
+            if (db && db[detectedProblemKey]) {
+                const config = db[detectedProblemKey];
+                const optimal = config.optimal.strategies.join(', ');
+                const explanation = config.optimal.explanation;
+                
+                // Opțional: luăm și strategiile "bune"
+                const good = config.good ? config.good.strategies.join(', ') : '';
+
+                return res.json({ 
+                    answer: `🧮 **SOLVER STRATEGY**\nAm detectat că te referi la problema **${detectedProblemKey.toUpperCase()}**.\n\n` +
+                            `✅ **Strategia Optimă:** ${optimal}\n` +
+                            `📖 **Motiv:** ${explanation}\n\n` +
+                            (good ? `⚠️ Alte strategii bune: ${good}` : '')
+                });
+            }
+        }
+
+        return res.json({ answer: "⚠️ Nu am putut rezolva problema. Verifică formatul:\n- Nash: (1,2) (3,4)...\n- CSP: A={1,2} A!=B\n- Minmax: frunze [1, 5, 2]" });
+    }
+
+    // =========================================================
+    // MODUL B: MEMORIE (Dacă avem ID valid)
+    // =========================================================
+    // ... (Aici rămâne codul existent de citire din fișiere, neschimbat)
+    let type = null;
+    let solution = "";
+    
+    if (fs.existsSync(`nash/instanta_${qNum}.json`)) { type='nash'; solution = fs.readFileSync(`nash/_SOLUTIE_nash_${qNum}.txt`, 'utf-8'); }
+    else if (fs.existsSync(`csp/instanta_${qNum}.json`)) { type='csp'; solution = fs.readFileSync(`csp/_SOLUTIE_csp_${qNum}.txt`, 'utf-8'); }
+    else if (fs.existsSync(`minmax/instanta_${qNum}.json`)) { type='minmax'; solution = fs.readFileSync(`minmax/_SOLUTIE_minmax_${qNum}.json`, 'utf-8'); }
+    else if (fs.existsSync(`strategy/instanta_${qNum}.json`)) { type='strategy'; solution = fs.readFileSync(`strategy/_SOLUTIE_strategy_${qNum}.txt`, 'utf-8'); }
+    else { return res.json({ answer: `Nu există Q${qNum} în memorie.` }); }
+
+    return res.json({ answer: `📂 **DIN MEMORIE (Q${qNum}):**\n${solution}` });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);

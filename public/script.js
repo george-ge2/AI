@@ -348,4 +348,39 @@ document.getElementById('downloadPdfBtn').onclick = async () => {
     doc.save("SmarTest_Intrebari.pdf");
 };
 
+// --- CHAT / HELPER LOGIC ---
+const askBtn = document.getElementById('askBtn');
+const askResponse = document.getElementById('askResponse');
 
+askBtn.onclick = async () => {
+    const qNum = document.getElementById('askQNum').value || 0; // 0 = Solver Mode
+    const query = document.getElementById('askText').value;
+
+    if (!query) { alert("Scrie enunțul!"); return; }
+
+    askBtn.disabled = true;
+    askResponse.style.display = 'block';
+    
+    // Feedback vizual: Portocaliu = Solver (Calcul nou), Mov = Memorie (Verificare)
+    if (qNum == 0) {
+        askResponse.textContent = "🧮 Calculez pe loc...";
+        askResponse.style.borderLeft = "4px solid #ff9f43"; 
+    } else {
+        askResponse.textContent = "🔍 Caut în memorie...";
+        askResponse.style.borderLeft = "4px solid #6c5ce7";
+    }
+
+    try {
+        const res = await fetch('/api/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questionNumber: qNum, query: query })
+        });
+        const data = await res.json();
+        askResponse.innerHTML = data.answer.replace(/\n/g, '<br>'); // Formatare frumoasă
+    } catch (e) {
+        askResponse.textContent = "Eroare: " + e.message;
+    } finally {
+        askBtn.disabled = false;
+    }
+};
