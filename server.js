@@ -8,6 +8,9 @@ const nashModule = require('./nash/gen');
 const cspModule = require('./csp/csp');
 const minmaxModule = require('./minmax/minimax');
 const strategyModule = require('./strategy/index.js');
+const perceptronModule = require('./perceptron/perceptron');
+const bayesianModule = require('./bayesian/bayesian');
+const qlearningModule = require('./qlearning/qlearning');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -21,9 +24,12 @@ if (!fs.existsSync('csp')) fs.mkdirSync('csp');
 if (!fs.existsSync('minmax')) fs.mkdirSync('minmax');
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 if (!fs.existsSync('strategy')) fs.mkdirSync('strategy');
+if (!fs.existsSync('perceptron')) fs.mkdirSync('perceptron');
+if (!fs.existsSync('bayesian')) fs.mkdirSync('bayesian');
+if (!fs.existsSync('qlearning')) fs.mkdirSync('qlearning');
 
 function wipeAllGeneratedFiles() {
-    ['nash', 'csp', 'minmax', 'strategy'].forEach(folder => {
+    ['nash', 'csp', 'minmax', 'strategy', 'perceptron', 'bayesian', 'qlearning'].forEach(folder => {
         if (fs.existsSync(folder)) {
             const files = fs.readdirSync(folder);
             files.forEach(file => {
@@ -34,7 +40,7 @@ function wipeAllGeneratedFiles() {
             });
         }
     });
-    console.log('[WIPE] Am șters istoricul vechi (Nash, CSP, MinMax, Strategy). Începem de la 1.');
+    console.log('[WIPE] Am șters istoricul vechi (Nash, CSP, MinMax, Strategy, Perceptron, Bayesian, Q-Learning). Începem de la 1.');
 }
 
 // ----------------------
@@ -42,7 +48,7 @@ function wipeAllGeneratedFiles() {
 // ----------------------
 function getNextGlobalQuestionNumber() {
     let maxNum = 0;
-    const dirs = ['nash', 'csp', 'minmax', 'strategy'];
+    const dirs = ['nash', 'csp', 'minmax', 'strategy', 'perceptron', 'bayesian', 'qlearning'];
 
     dirs.forEach(dir => {
         if (fs.existsSync(dir)) {
@@ -56,7 +62,7 @@ function getNextGlobalQuestionNumber() {
             });
         }
     });
-    
+
     return maxNum + 1;
 }
 
@@ -220,7 +226,7 @@ app.post('/api/generate', (req, res) => {
         }
         else if (type === 'strategy') {
             const question = strategyModule.generateQuestion();
-            
+
             const instanceFile = `strategy/instanta_${globalIndex}.json`;
             fs.writeFileSync(instanceFile, JSON.stringify({
                 problemType: question.problemType,
@@ -235,7 +241,7 @@ app.post('/api/generate', (req, res) => {
             const solutionText = `Strategie optimă: ${question.optimalStrategies[0]}\n` +
                                 `Strategii optime: ${question.optimalStrategies.join(', ')}`;
             fs.writeFileSync(solutionFile, solutionText, 'utf8');
-            
+
             console.log(`[Gen] Strategy Q${globalIndex} salvat.`);
 
             questions.push({
@@ -245,6 +251,60 @@ app.post('/api/generate', (req, res) => {
                 problemType: question.problemType,
                 instance: question.instance,
                 solution: solutionText
+            });
+        }
+        else if (type === 'perceptron') {
+            const question = perceptronModule.generateQuestion();
+
+            const instanceFile = `perceptron/instanta_${globalIndex}.json`;
+            fs.writeFileSync(instanceFile, JSON.stringify(question.instance, null, 2));
+
+            const solutionFile = `perceptron/_SOLUTIE_perceptron_${globalIndex}.txt`;
+            fs.writeFileSync(solutionFile, question.correctAnswer.toString(), 'utf8');
+
+            console.log(`[Gen] Perceptron Q${globalIndex} salvat.`);
+
+            questions.push({
+                number: globalIndex,
+                type: 'perceptron',
+                question: question.questionText,
+                solution: question.correctAnswer.toString()
+            });
+        }
+        else if (type === 'bayesian') {
+            const question = bayesianModule.generateQuestion();
+
+            const instanceFile = `bayesian/instanta_${globalIndex}.json`;
+            fs.writeFileSync(instanceFile, JSON.stringify(question.instance, null, 2));
+
+            const solutionFile = `bayesian/_SOLUTIE_bayesian_${globalIndex}.txt`;
+            fs.writeFileSync(solutionFile, question.correctAnswer.toString(), 'utf8');
+
+            console.log(`[Gen] Bayesian Q${globalIndex} salvat.`);
+
+            questions.push({
+                number: globalIndex,
+                type: 'bayesian',
+                question: question.questionText,
+                solution: question.correctAnswer.toString()
+            });
+        }
+        else if (type === 'qlearning') {
+            const question = qlearningModule.generateQuestion();
+
+            const instanceFile = `qlearning/instanta_${globalIndex}.json`;
+            fs.writeFileSync(instanceFile, JSON.stringify(question.instance, null, 2));
+
+            const solutionFile = `qlearning/_SOLUTIE_qlearning_${globalIndex}.txt`;
+            fs.writeFileSync(solutionFile, question.correctAnswer.toString(), 'utf8');
+
+            console.log(`[Gen] Q-Learning Q${globalIndex} salvat.`);
+
+            questions.push({
+                number: globalIndex,
+                type: 'qlearning',
+                question: question.questionText,
+                solution: question.correctAnswer.toString()
             });
         }
     }
@@ -433,7 +493,7 @@ app.post('/api/evaluate-multi', upload.single('answer'), async (req, res) => {
             else if (fs.existsSync(`strategy/instanta_${qNum}.json`)) {
                 const strategyPath = `strategy/instanta_${qNum}.json`;
                 const strategyData = JSON.parse(fs.readFileSync(strategyPath, 'utf-8'));
-                
+
                 // Create a question object compatible with evaluateAnswer
                 const questionForEval = {
                     problemType: strategyData.problemType,
@@ -443,9 +503,9 @@ app.post('/api/evaluate-multi', upload.single('answer'), async (req, res) => {
                     workingStrategies: strategyData.workingStrategies || [],
                     unsuitableStrategies: strategyData.unsuitableStrategies || []
                 };
-                
+
                 const evaluation = strategyModule.evaluateAnswer(userAnswerText, questionForEval);
-                
+
                 results.push({
                     number: qNum,
                     type: 'strategy',
@@ -455,7 +515,64 @@ app.post('/api/evaluate-multi', upload.single('answer'), async (req, res) => {
                     feedback: evaluation.feedback ? evaluation.feedback.join('\n') : ''
                 });
             }
-            
+
+            // --- PERCEPTRON ---
+            else if (fs.existsSync(`perceptron/instanta_${qNum}.json`)) {
+                const perceptronSolPath = `perceptron/_SOLUTIE_perceptron_${qNum}.txt`;
+                if (!fs.existsSync(perceptronSolPath)) {
+                    results.push({ number: qNum, type: 'perceptron', score: 0, error: "Soluție lipsă pe server" });
+                    continue;
+                }
+                const correctAnswer = parseFloat(fs.readFileSync(perceptronSolPath, 'utf-8').trim());
+                const evaluation = perceptronModule.evaluateAnswer(userAnswerText, correctAnswer);
+
+                results.push({
+                    number: qNum,
+                    type: 'perceptron',
+                    score: evaluation.score,
+                    correctAnswer: correctAnswer,
+                    message: evaluation.message
+                });
+            }
+
+            // --- BAYESIAN ---
+            else if (fs.existsSync(`bayesian/instanta_${qNum}.json`)) {
+                const bayesianSolPath = `bayesian/_SOLUTIE_bayesian_${qNum}.txt`;
+                if (!fs.existsSync(bayesianSolPath)) {
+                    results.push({ number: qNum, type: 'bayesian', score: 0, error: "Soluție lipsă pe server" });
+                    continue;
+                }
+                const correctAnswer = parseFloat(fs.readFileSync(bayesianSolPath, 'utf-8').trim());
+                const evaluation = bayesianModule.evaluateAnswer(userAnswerText, correctAnswer);
+
+                results.push({
+                    number: qNum,
+                    type: 'bayesian',
+                    score: evaluation.score,
+                    correctAnswer: correctAnswer,
+                    message: evaluation.message
+                });
+            }
+
+            // --- Q-LEARNING ---
+            else if (fs.existsSync(`qlearning/instanta_${qNum}.json`)) {
+                const qlearningSolPath = `qlearning/_SOLUTIE_qlearning_${qNum}.txt`;
+                if (!fs.existsSync(qlearningSolPath)) {
+                    results.push({ number: qNum, type: 'qlearning', score: 0, error: "Soluție lipsă pe server" });
+                    continue;
+                }
+                const correctAnswer = parseFloat(fs.readFileSync(qlearningSolPath, 'utf-8').trim());
+                const evaluation = qlearningModule.evaluateAnswer(userAnswerText, correctAnswer);
+
+                results.push({
+                    number: qNum,
+                    type: 'qlearning',
+                    score: evaluation.score,
+                    correctAnswer: correctAnswer,
+                    message: evaluation.message
+                });
+            }
+
             // --- UNKNOWN ---
             else {
                 results.push({ number: qNum, type: 'unknown', score: 0, error: "Întrebarea nu a fost găsită pe server (ID greșit?)" });
@@ -587,11 +704,311 @@ app.post('/api/ask', (req, res) => {
             } catch (e) { /* Continuăm dacă crapă parsarea */ }
         }
 
-        // --- 3. DETECTARE MINMAX ---
+        // --- 3. DETECTARE PERCEPTRON ---
+        if ((text.includes('perceptron') || text.includes('ponderi') || text.includes('ponder')) &&
+            (text.includes('learning rate') || text.includes('η') || text.includes('eta'))) {
+
+            try {
+                // Parse weights: w1=0.5, w2=-0.3 or Ponderi: w1=0.5, w2=-0.3
+                const weights = {};
+                const weightRegex = /w(\d+)\s*=\s*(-?\d+\.?\d*)/gi;
+                let wMatch;
+                while ((wMatch = weightRegex.exec(text)) !== null) {
+                    weights[parseInt(wMatch[1])] = parseFloat(wMatch[2]);
+                }
+
+                // Parse bias: b=0.1 or Bias: b=0.1
+                const biasMatch = text.match(/\bb\s*=\s*(-?\d+\.?\d*)/i);
+                const bias = biasMatch ? parseFloat(biasMatch[1]) : 0;
+
+                // Parse learning rate: η=0.5 or eta=0.5 or learning rate: 0.5
+                const etaMatch = text.match(/(?:η|eta|learning rate)\s*[:=]?\s*(-?\d+\.?\d*)/i);
+                const learningRate = etaMatch ? parseFloat(etaMatch[1]) : 0.1;
+
+                // Parse input: x1=2, x2=-1
+                const inputs = {};
+                const inputRegex = /x(\d+)\s*=\s*(-?\d+\.?\d*)/gi;
+                let xMatch;
+                while ((xMatch = inputRegex.exec(text)) !== null) {
+                    inputs[parseInt(xMatch[1])] = parseFloat(xMatch[2]);
+                }
+
+                // Parse true label: y=1 or y=-1 or Etichetă: y=1
+                const labelMatch = text.match(/y\s*=\s*(-?\d+)/i);
+                const trueLabel = labelMatch ? parseInt(labelMatch[1]) : 1;
+
+                // Parse which weight is asked: w1, w2, etc.
+                const askMatch = text.match(/noua valoare.*?w(\d+)/i) || text.match(/w(\d+)\s*\?/i);
+                const askWeightIndex = askMatch ? parseInt(askMatch[1]) : 1;
+
+                const weightKeys = Object.keys(weights).map(Number).sort((a, b) => a - b);
+                const inputKeys = Object.keys(inputs).map(Number).sort((a, b) => a - b);
+
+                if (weightKeys.length > 0 && inputKeys.length > 0) {
+                    // Compute prediction: sum = b + Σ wi*xi
+                    let sum = bias;
+                    for (const i of weightKeys) {
+                        if (inputs[i] !== undefined) {
+                            sum += weights[i] * inputs[i];
+                        }
+                    }
+                    const prediction = sum >= 0 ? 1 : -1;
+
+                    // If misclassified, compute update
+                    let newWeight = weights[askWeightIndex];
+                    if (prediction !== trueLabel) {
+                        const error = trueLabel - prediction; // Will be 2 or -2
+                        const inputVal = inputs[askWeightIndex] || 0;
+                        newWeight = weights[askWeightIndex] + learningRate * error * inputVal;
+                        newWeight = parseFloat(newWeight.toFixed(2));
+                    }
+
+                    return res.json({
+                        answer: `🧮 **SOLVER PERCEPTRON**\n\n` +
+                                `Ponderi detectate: ${weightKeys.map(i => `w${i}=${weights[i]}`).join(', ')}\n` +
+                                `Bias: b=${bias}\n` +
+                                `Learning rate: η=${learningRate}\n` +
+                                `Input: ${inputKeys.map(i => `x${i}=${inputs[i]}`).join(', ')}\n` +
+                                `Etichetă: y=${trueLabel}\n\n` +
+                                `Predicție: sign(${sum.toFixed(2)}) = ${prediction}\n` +
+                                `${prediction !== trueLabel ? 'Clasificare greșită → Actualizare' : 'Clasificare corectă → Fără actualizare'}\n\n` +
+                                `**Răspuns:** w${askWeightIndex} = ${newWeight}`
+                    });
+                }
+
+            } catch (e) {
+                console.error('Perceptron solver error:', e);
+            }
+
+            return res.json({
+                answer: `🧮 **SOLVER PERCEPTRON**\n\n` +
+                        `Nu am putut parsa complet problema.\n\n` +
+                        `**Sugestie:** Generează o întrebare Perceptron din interfață.\n\n` +
+                        `**Formula de actualizare:**\n` +
+                        `w_new = w + η × (y - ŷ) × x\n\n` +
+                        `Unde:\n` +
+                        `- η = learning rate\n` +
+                        `- y = etichetă corectă\n` +
+                        `- ŷ = predicție (sign(w·x + b))`
+            });
+        }
+
+        // --- 4. DETECTARE BAYESIAN NETWORK
+        if ((text.includes('bayesian') || text.includes('bayes') || text.includes('p(a')) ||
+            (text.includes('probabilit') && text.includes('=') && text.includes('|'))) {
+
+            try {
+                // Parse probabilities: P(A) = 0.7, P(B|A=true) = 0.36, etc.
+                const probs = {};
+
+                // Match P(X) = number (text is lowercased, so use [a-z])
+                const pRegex = /p\(([a-z])\)\s*=\s*(0?\.\d+|\d+\.?\d*)/gi;
+                let match;
+                while ((match = pRegex.exec(text)) !== null) {
+                    probs[match[1].toUpperCase()] = parseFloat(match[2]);
+                }
+
+                // Match P(X|Y=true/false) = number
+                const pCondRegex = /p\(([a-z])\|([a-z])=(true|false)\)\s*=\s*(0?\.\d+|\d+\.?\d*)/gi;
+                while ((match = pCondRegex.exec(text)) !== null) {
+                    const key = `${match[1].toUpperCase()}|${match[2].toUpperCase()}=${match[3]}`;
+                    probs[key] = parseFloat(match[4]);
+                }
+
+                // Detect what's being asked: P(A=true, B=true, ...) or P(B=true)
+                // Pattern: Care este P(...)
+                const askRegex = /care\s+este\s+p\(([^)]+)\)/i;
+                const askMatch = text.match(askRegex);
+
+                if (!askMatch) {
+                    return res.json({
+                        answer: `🧮 **SOLVER BAYESIAN**\n\nNu am putut detecta întrebarea. Format așteptat: "Care este P(A=true, B=true)?"`
+                    });
+                }
+
+                const queryStr = askMatch[1];
+
+                // Parse query: "A=true, B=true, C=true" or "B=true"
+                const assignments = [];
+                const assignRegex = /([a-z])=(true|false)/gi;
+                while ((match = assignRegex.exec(queryStr)) !== null) {
+                    assignments.push({ var: match[1].toUpperCase(), value: match[2] });
+                }
+
+                if (assignments.length === 0) {
+                    return res.json({
+                        answer: `🧮 **SOLVER BAYESIAN**\n\nNu am putut parsa query-ul: "${queryStr}"`
+                    });
+                }
+
+                // Compute joint probability or marginal
+                let result = null;
+
+                // Detect if A is in the query (A is the parent in structure A → B, A → C)
+                const hasA = assignments.some(a => a.var === 'A');
+
+                if (hasA) {
+                    // Case 1: Joint probability with parent P(A=true, B=true, C=true)
+                    // Formula: P(A) × P(B|A) × P(C|A)
+                    const parentAssignment = assignments.find(a => a.var === 'A');
+                    result = probs['A'] || 1;
+
+                    // If A=false, use 1 - P(A)
+                    if (parentAssignment.value === 'false') {
+                        result = 1 - result;
+                    }
+
+                    // Multiply by conditional probabilities
+                    for (const child of assignments) {
+                        if (child.var !== 'A') {
+                            const condKey = `${child.var}|A=${parentAssignment.value}`;
+                            if (probs[condKey] !== undefined) {
+                                result *= probs[condKey];
+                            }
+                        }
+                    }
+                } else if (assignments.length >= 2) {
+                    // Case 2: Marginal probability P(B=true, C=true) - need to sum over A
+                    // Formula: Σ_a P(A=a) × P(B=true|A=a) × P(C=true|A=a)
+
+                    // Try marginalization over A (assume A is the parent)
+                    if (probs['A'] !== undefined) {
+                        let sum = 0;
+
+                        // Sum over A=true
+                        let prob_A_true = probs['A'];
+                        let product_true = prob_A_true;
+                        let all_found_true = true;
+                        for (const child of assignments) {
+                            const condKey = `${child.var}|A=true`;
+                            if (probs[condKey] !== undefined) {
+                                product_true *= probs[condKey];
+                            } else {
+                                all_found_true = false;
+                            }
+                        }
+                        if (all_found_true) sum += product_true;
+
+                        // Sum over A=false
+                        let prob_A_false = 1 - probs['A'];
+                        let product_false = prob_A_false;
+                        let all_found_false = true;
+                        for (const child of assignments) {
+                            const condKey = `${child.var}|A=false`;
+                            if (probs[condKey] !== undefined) {
+                                product_false *= probs[condKey];
+                            } else {
+                                all_found_false = false;
+                            }
+                        }
+                        if (all_found_false) sum += product_false;
+
+                        result = sum;
+                    }
+                } else {
+                    // Case 3: Single variable P(B=true) - marginalization
+                    const v = assignments[0];
+
+                    // Try to marginalize over A
+                    if (probs['A'] !== undefined) {
+                        const condKeyTrue = `${v.var}|A=true`;
+                        const condKeyFalse = `${v.var}|A=false`;
+
+                        if (probs[condKeyTrue] !== undefined && probs[condKeyFalse] !== undefined) {
+                            result = probs['A'] * probs[condKeyTrue] + (1 - probs['A']) * probs[condKeyFalse];
+                        }
+                    } else {
+                        result = probs[v.var] || null;
+                    }
+                }
+
+                if (result !== null) {
+                    result = parseFloat(result.toFixed(4));
+                    return res.json({
+                        answer: `🧮 **SOLVER BAYESIAN**\n\nAm detectat rețea Bayesiană.\n\n` +
+                                `Probabilități parsate: ${Object.keys(probs).length}\n` +
+                                `Query: ${queryStr}\n\n` +
+                                `**Răspuns:** ${result}`
+                    });
+                }
+
+            } catch (e) {
+                console.error('Bayesian solver error:', e);
+            }
+
+            return res.json({
+                answer: `🧮 **SOLVER BAYESIAN NETWORK**\n\n` +
+                        `Nu am putut parsa complet problema.\n\n` +
+                        `**Sugestie:** Generează o întrebare Bayesian din interfață și folosește ID-ul pentru a obține soluția.\n\n`
+            });
+        }
+
+        // --- 5. DETECTARE Q-LEARNING
+        if ((text.includes('q-learning') || text.includes('q(') || text.includes('q value')) &&
+            (text.includes('alpha') || text.includes('α') || text.includes('learning rate'))) {
+
+            try {
+                // Parse parameters
+                const alphaMatch = text.match(/(?:alpha|α)\s*[:=]?\s*(0?\.\d+)/i);
+                const gammaMatch = text.match(/(?:gamma|γ|discount)\s*[:=]?\s*(0?\.\d+)/i);
+                const rewardMatch = text.match(/(?:r|reward)\s*[:=]?\s*(-?\d+\.?\d*)/i);
+
+                // Parse initial Q value: Q(S2, a1) = -0.39
+                const initialQMatch = text.match(/Q\([^)]+\)\s*=\s*(-?\d+\.?\d*)/i);
+
+                // Parse next state Q values: Q(S0, a1) = 4.12, Q(S0, a2) = 5.05, ...
+                const qValuesRegex = /Q\([^,]+,\s*[^)]+\)\s*=\s*(-?\d+\.?\d*)/gi;
+                const qValues = [];
+                let qMatch;
+                while ((qMatch = qValuesRegex.exec(text)) !== null) {
+                    qValues.push(parseFloat(qMatch[1]));
+                }
+
+                if (alphaMatch && gammaMatch && rewardMatch && initialQMatch && qValues.length > 0) {
+                    const alpha = parseFloat(alphaMatch[1]);
+                    const gamma = parseFloat(gammaMatch[1]);
+                    const reward = parseFloat(rewardMatch[1]);
+                    const initialQ = parseFloat(initialQMatch[1]);
+                    const maxQNext = Math.max(...qValues);
+
+                    // Apply Q-learning update formula
+                    // Q(s,a) ← Q(s,a) + α[r + γ max Q(s',a') - Q(s,a)]
+                    const target = reward + gamma * maxQNext;
+                    const tdError = target - initialQ;
+                    const newQ = initialQ + alpha * tdError;
+                    const result = parseFloat(newQ.toFixed(2));
+
+                    return res.json({
+                        answer: `🧮 **SOLVER Q-LEARNING**\n\n` +
+                                `Parametri detectați:\n` +
+                                `- α (learning rate) = ${alpha}\n` +
+                                `- γ (discount) = ${gamma}\n` +
+                                `- r (reward) = ${reward}\n` +
+                                `- Q inițial = ${initialQ}\n` +
+                                `- max Q(s',a') = ${maxQNext}\n\n` +
+                                `Formula: Q ← Q + α[r + γ·max Q' - Q]\n` +
+                                `Target: ${reward} + ${gamma} × ${maxQNext} = ${target.toFixed(2)}\n` +
+                                `TD Error: ${tdError.toFixed(2)}\n\n` +
+                                `**Răspuns:** Q nou = ${result}`
+                    });
+                }
+
+            } catch (e) {
+                console.error('Q-Learning solver error:', e);
+            }
+
+            return res.json({
+                answer: `🧮 **SOLVER Q-LEARNING**\n\n` +
+                        `Nu am putut parsa complet problema.\n\n` +
+                        `**Sugestie:** Generează o întrebare Q-Learning din interfață și folosește ID-ul pentru a obține soluția.\n\n`
+            });
+        }
+
+        // --- 6. DETECTARE MINMAX ---
         // Format așteptat: [1, 5, 2] (frunze) și opțional b=2 (branching)
         const leafRegex = /-?\d+/g;
         const potentialLeaves = (text.match(leafRegex) || []).map(Number);
-        
+
         // Cuvinte cheie obligatorii pt MinMax ca să nu se activeze aiurea
         if ((text.includes('arbore') || text.includes('minmax') || text.includes('frunze')) && potentialLeaves.length >= 2) {
             
@@ -631,40 +1048,47 @@ app.post('/api/ask', (req, res) => {
             });
         }
 
-        // --- 4. DETECTARE STRATEGY (AI Search Problems) ---
+        // --- 7. DETECTARE STRATEGY (AI Search Problems) ---
         // Folosim config-ul importat din strategyModule (index.js al tau)
-        
+
         // Definim cuvinte cheie pentru a identifica DESPRE CE PROBLEMĂ vorbești
+        // Using word boundaries to avoid false matches like "structura" matching "tur"
         const problemKeywords = {
-            'n-queens': ['queen', 'regin', 'n-queens', 'table', 'sah'],
-            'generalized-hanoi': ['hanoi', 'turn', 'disk', 'disc', 'tija', 'tije', 'mutare'],
-            'graph-coloring': ['color', 'graf', 'harta', 'noduri', 'adiacent', 'chromatic'],
-            'knights-tour': ['knight', 'cal', 'tour', 'tur', 'tabla', 'mutari']
+            'n-queens': ['queen', 'regin', 'n-queens', 'sah'],
+            'generalized-hanoi': ['hanoi', 'disk', 'disc', 'tija', 'tije'],
+            'graph-coloring': ['coloring', 'colorare', 'graf', 'harta', 'chromatic'],
+            'knights-tour': ['knight', 'cal', 'cavalier']
         };
 
         let detectedProblemKey = null;
 
         // Căutăm în textul tău un cuvânt cheie care să indice problema
+        // Using word boundaries for more precise matching
         for (const [key, keywords] of Object.entries(problemKeywords)) {
-            if (keywords.some(w => text.includes(w))) {
-                detectedProblemKey = key;
-                break;
+            for (const keyword of keywords) {
+                // Use word boundary regex for better matching
+                const wordBoundaryRegex = new RegExp(`\\b${keyword}\\b`, 'i');
+                if (wordBoundaryRegex.test(text)) {
+                    detectedProblemKey = key;
+                    break;
+                }
             }
+            if (detectedProblemKey) break;
         }
 
         if (detectedProblemKey) {
             // Accesăm baza de date din index.js (PROBLEM_STRATEGIES)
             const db = strategyModule.PROBLEM_STRATEGIES;
-            
+
             if (db && db[detectedProblemKey]) {
                 const config = db[detectedProblemKey];
                 const optimal = config.optimal.strategies.join(', ');
                 const explanation = config.optimal.explanation;
-                
+
                 // Opțional: luăm și strategiile "bune"
                 const good = config.good ? config.good.strategies.join(', ') : '';
 
-                return res.json({ 
+                return res.json({
                     answer: `🧮 **SOLVER STRATEGY**\nAm detectat că te referi la problema **${detectedProblemKey.toUpperCase()}**.\n\n` +
                             `✅ **Strategia Optimă:** ${optimal}\n` +
                             `📖 **Motiv:** ${explanation}\n\n` +
@@ -673,7 +1097,7 @@ app.post('/api/ask', (req, res) => {
             }
         }
 
-        return res.json({ answer: "⚠️ Nu am putut rezolva problema. Verifică formatul:\n- Nash: (1,2) (3,4)...\n- CSP: A={1,2} A!=B\n- Minmax: frunze [1, 5, 2]" });
+        return res.json({ answer: "⚠️ Nu am putut rezolva problema. Verifică formatul:\n- Nash: (1,2) (3,4)...\n- CSP: A={1,2} A!=B\n- Minmax: frunze [1, 5, 2]\n- Bayesian: P(A)=0.5 P(B|A)=...\n- MDP/Q-Learning: Folosește ID-ul întrebării generate" });
     }
 
     // =========================================================
@@ -687,6 +1111,9 @@ app.post('/api/ask', (req, res) => {
     else if (fs.existsSync(`csp/instanta_${qNum}.json`)) { type='csp'; solution = fs.readFileSync(`csp/_SOLUTIE_csp_${qNum}.txt`, 'utf-8'); }
     else if (fs.existsSync(`minmax/instanta_${qNum}.json`)) { type='minmax'; solution = fs.readFileSync(`minmax/_SOLUTIE_minmax_${qNum}.json`, 'utf-8'); }
     else if (fs.existsSync(`strategy/instanta_${qNum}.json`)) { type='strategy'; solution = fs.readFileSync(`strategy/_SOLUTIE_strategy_${qNum}.txt`, 'utf-8'); }
+    else if (fs.existsSync(`perceptron/instanta_${qNum}.json`)) { type='perceptron'; solution = fs.readFileSync(`perceptron/_SOLUTIE_perceptron_${qNum}.txt`, 'utf-8'); }
+    else if (fs.existsSync(`bayesian/instanta_${qNum}.json`)) { type='bayesian'; solution = fs.readFileSync(`bayesian/_SOLUTIE_bayesian_${qNum}.txt`, 'utf-8'); }
+    else if (fs.existsSync(`qlearning/instanta_${qNum}.json`)) { type='qlearning'; solution = fs.readFileSync(`qlearning/_SOLUTIE_qlearning_${qNum}.txt`, 'utf-8'); }
     else { return res.json({ answer: `Nu există Q${qNum} în memorie.` }); }
 
     return res.json({ answer: `📂 **DIN MEMORIE (Q${qNum}):**\n${solution}` });

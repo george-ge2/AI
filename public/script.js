@@ -57,6 +57,11 @@ function renderQuestions() {
             }
         }
 
+        if (q.type === 'perceptron' || q.type === 'bayesian' || q.type === 'qlearning') {
+            // These types have self-contained question text
+            // No additional formatting needed
+        }
+
         if (showSolutions && q.solution) {
             output += `\n=== Soluție ===\n`;
             output += `${q.solution}\n`;
@@ -90,12 +95,18 @@ generateBtn.onclick = async () => {
         const cspCount = parseInt(document.getElementById('cspCount').value) || 0;
         const minmaxCount = parseInt(document.getElementById('minmaxCount')?.value) || 0;
         const strategyCount = parseInt(document.getElementById('strategyCount')?.value) || 0;
+        const perceptronCount = parseInt(document.getElementById('perceptronCount')?.value) || 0;
+        const bayesianCount = parseInt(document.getElementById('bayesianCount')?.value) || 0;
+        const qlearningCount = parseInt(document.getElementById('qlearningCount')?.value) || 0;
 
         const requests = [];
         if (nashCount > 0) requests.push({ type: 'nash', count: nashCount });
         if (cspCount > 0) requests.push({ type: 'csp', count: cspCount });
         if (minmaxCount > 0) requests.push({ type: 'minmax', count: minmaxCount });
         if (strategyCount > 0) requests.push({ type: 'strategy', count: strategyCount });
+        if (perceptronCount > 0) requests.push({ type: 'perceptron', count: perceptronCount });
+        if (bayesianCount > 0) requests.push({ type: 'bayesian', count: bayesianCount });
+        if (qlearningCount > 0) requests.push({ type: 'qlearning', count: qlearningCount });
 
         if (requests.length === 0) {
             questionEl.textContent = "Selectați cel puțin o întrebare de generat.";
@@ -247,7 +258,21 @@ evaluateBtn.onclick = async () => {
                     html += `<div class="muted" style="margin-top: 8px;">${r.feedback}</div>`;
                 }
             }
-            
+            else if (r.type === 'perceptron' || r.type === 'bayesian' || r.type === 'qlearning') {
+                const scoreColor = r.score >= 75 ? '#51cf66' : r.score >= 50 ? '#ffd43b' : '#ff6b6b';
+                html += `<div style="font-size: 1.8rem; font-weight: 600; color: ${scoreColor}; margin: 10px 0;">
+                            ${r.score}%
+                        </div>`;
+                if (r.message) {
+                    html += `<div class="muted" style="margin-top: 8px;">${r.message}</div>`;
+                }
+                if (r.correctAnswer !== undefined) {
+                    html += `<div class="muted" style="margin-top: 8px;">
+                                <strong>Răspuns corect:</strong> ${r.correctAnswer}
+                            </div>`;
+                }
+            }
+
             html += `</div>`;
         });
 
@@ -322,12 +347,17 @@ document.getElementById('downloadPdfBtn').onclick = async () => {
         if (q.type === 'strategy' && q.problemType && q.instance) {
             const strategyText = `Tip problema: ${q.problemType}\nInstanta: ${q.instance.description}`;
             const strategyLines = doc.splitTextToSize(removeDiacritics(strategyText), maxWidth);
-            strategyLines.forEach(line => { 
-                if (y > 770) { doc.addPage(); y = margin; } 
-                doc.text(line, margin, y); 
-                y += lineHeight; 
+            strategyLines.forEach(line => {
+                if (y > 770) { doc.addPage(); y = margin; }
+                doc.text(line, margin, y);
+                y += lineHeight;
             });
             y += 8;
+        }
+
+        if (q.type === 'perceptron' || q.type === 'bayesian' || q.type === 'qlearning') {
+            // Question text already contains all necessary information
+            // No additional formatting needed
         }
 
         // Solutions
